@@ -26,7 +26,7 @@ router.post("/register", async (request, response) => {
 
         const existingEmail = await User.findOne({email});
         if (existingEmail){
-            return response.status(400).json({message: "Email already exists"});
+            return response.status(400).json({message: "User ID already exists"});
         }
 
         const existingUsername = await User.findOne({username});
@@ -69,10 +69,10 @@ router.post("/login", async (request, response) => {
         if (!email || !password) return response.status(400).json({message: "All fields are required"});
         
         const user = await User.findOne({email});
-        if(!user) return response.status(400).json({message: "Invalid credentials"});
+        if(!user) return response.status(400).json({message: "This username is not found"});
 
         const isPasswordCorrect = await user.comparePassword(password);
-        if(!isPasswordCorrect) return response.status(400).json({message: "Invalid credentials"});
+        if(!isPasswordCorrect) return response.status(400).json({message: "Wrong Password"});
 
         const token = generateToken(user._id);
 

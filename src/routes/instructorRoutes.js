@@ -43,13 +43,13 @@ router.get("/", protectRoute, async (request, response) => {
         
         const instructors = await Instructor.find().sort({createdAt: -1}).skip(skip).limit(limit).populate("user", "username profileImage");
 
-        const totalInstructors = await Student.countDocuments();
+        const totalInstructors = await Instructor.countDocuments();
 
         response.send({
             instructors,
             currentPage: page,
             totalInstructors,
-            totalPages: Math.ceil(totalStudents / limit),
+            totalPages: Math.ceil(totalInstructors / limit),
         });
 
     }catch(error){
