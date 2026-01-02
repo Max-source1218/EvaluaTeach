@@ -33,7 +33,7 @@ router.post("/", protectRoute, async (request, response) => {
     }
 });
 
-// const response = await fetch("https://localhost:3000/api/students?page=1&limit=5");
+// const response = await fetch("https://localhost:3000/api/instructors?page=1&limit=5");
 
 router.get("/", protectRoute, async (request, response) => {
     try{

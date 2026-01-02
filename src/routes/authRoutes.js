@@ -53,7 +53,8 @@ router.post("/register", async (request, response) => {
             _id: user._id,
             username: user.username,
             email: user.email,
-            profileImage: user.profileImage
+            profileImage: user.profileImage,
+            createdAt: new Date(),
             },
         });
     }catch(error){
@@ -65,6 +66,8 @@ router.post("/register", async (request, response) => {
 router.post("/login", async (request, response) => {
     try{
         const {email,  password} = request.body;
+
+        if (!email || !password) return response.status(400).json({message: "All fields are required"});
         
         const user = await User.findOne({email});
         if(!user) return response.status(400).json({message: "This username is not found"});
@@ -80,7 +83,8 @@ router.post("/login", async (request, response) => {
             id: user._id,
             username: user.username,
             email: user.email,
-            profileImage: user.profileImage
+            profileImage: user.profileImage,
+            createdAt: user.createdAt,
             },
         });
 
