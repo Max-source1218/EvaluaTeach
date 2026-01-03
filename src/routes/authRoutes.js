@@ -54,7 +54,6 @@ router.post("/register", async (request, response) => {
             username: user.username,
             email: user.email,
             profileImage: user.profileImage,
-            createdAt: new Date(),
             },
         });
     }catch(error){

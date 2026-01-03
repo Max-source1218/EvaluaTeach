@@ -84,7 +84,6 @@ router.delete("/:id", protectRoute, async (request, response) => {
 
             }catch(deleteError){
                 console.log("Error deleting image from cloudinary", deleteError);
-
             }
         }
 
