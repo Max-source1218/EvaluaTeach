@@ -28,7 +28,7 @@ router.post("/", protectRoute, async (request, response) => {
 
         response.status(201).json({newInstructor})
     }catch(error){
-        console.log("Error listing student")
+        console.log("Error listing instructor")
         response.status(500).json({message: error.message})
     }
 });

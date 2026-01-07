@@ -1,35 +1,29 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-/*const response = await fetch('http://localhost:3000/api/student', {
-    method: "POST",
-    body: JSON.stringify({
-        name,
-        department
-    }),
-    headers: {Authorization: 'Bearer ${token}'},
-});*/
-
 const protectRoute = async (request, response, next) => {
+    try {
+        // Get Token (safely handle missing header)
+        const authHeader = request.header("Authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return response.status(401).json({ message: "No authentication token, access denied" });
+        }
+        const token = authHeader.replace("Bearer ", "");
 
-    try{
-        // Get Token
+        // Verify token (fix secret name)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Corrected: no dot
 
-        const token = request.header("Authorization").replace("Bearer ", "");
-        if (!token) return response.status(401).json({message: "No authentication token, access denied"});
-
-        //Verify token
-        const decoded = jwt.verify(token, process.env.JWT.SECRET);
-
-        //Find user
-        const user = await User.findById(decoded.userId).select("-password");
-        if (!user) return response.status(401).json({message: "Token is not valid"})
+        // Find user (fix payload key to match _id)
+        const user = await User.findById(decoded._id).select("-password"); // Changed to decoded._id
+        if (!user) {
+            return response.status(401).json({ message: "Token is not valid" });
+        }
 
         request.user = user;
         next();
-    }catch(error){
-        console.error("Authentication error: ", error.message);
-        response.status(401).json({message: "Token is not valid"});
+    } catch (error) {
+        console.error("Authentication error:", error.message); // More specific logging
+        response.status(401).json({ message: "Token is not valid" });
     }
 };
 
