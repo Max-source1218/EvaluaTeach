@@ -6,30 +6,31 @@ import protectRoute from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.post("/", protectRoute, async (request, response) => {
+    try {
+        const { name, department, image } = request.body;
+        console.log("Received data:", { name, department, image: image.substring(0, 100) + "..." }); // Log partial image
 
-    try{
-        const {name, department, image} = request.body;
+        if (!image || !name || !department) return response.status(400).json({ message: "Please provide all fields" });
 
-        if (!image || !name || !department) return response.status(400).json({message: "Please provide all fields"});
+        console.log("Attempting Cloudinary upload...");
+        const uploadResponse = await cloudinary.uploader.upload(image);
+        console.log("Cloudinary upload success:", uploadResponse.secure_url);
 
-        // Upload the image to cloudinary
-         const uploadResponse = await cloudinary.uploader.upload(image);
-         const imageURL = uploadResponse.secure_url;
-        // Save to the database
-
+        console.log("Saving to DB...");
         const newInstructor = new Instructor({
             name,
             department,
-            image: imageURL,
+            image: uploadResponse.secure_url,
             user: request.user._id,
         });
-
         await newInstructor.save();
+        console.log("DB save success");
 
-        response.status(201).json({newInstructor})
-    }catch(error){
-        console.log("Error listing instructor")
-        response.status(500).json({message: error.message})
+        response.status(201).json({ newInstructor });
+    } catch (error) {
+        console.error("Error creating instructor:", error.message); // More detailed log
+        console.error("Full error:", error); // Log stack trace
+        response.status(500).json({ message: error.message });
     }
 });
 
