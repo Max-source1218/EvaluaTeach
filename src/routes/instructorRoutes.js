@@ -60,12 +60,12 @@ router.get("/", protectRoute, async (request, response) => {
 });
 
 router.get("/user", protectRoute, async (request, response) => {
-    try{
-        const instructors = (await Instructor.find({user: request.user._id})).toSorted({createdAt: -1});
+    try {
+        const instructors = await Instructor.find({ user: request.user._id }).sort({ createdAt: -1 });
         response.json(instructors);
-    }catch(error){
+    } catch (error) {
         console.error("Get user Evaluation form error", error.message);
-        response.status(500).json({message: "Server error"});
+        response.status(500).json({ message: "Server error" });
     }
 });
 
