@@ -1,6 +1,7 @@
 import express, { request } from "express";
 import cloudinary from "../lib/cloudinary.js";
 import Instructor from "../models/Instructor.js";
+import Subject from "../models/Subject.js";
 import protectRoute from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -76,6 +77,8 @@ router.delete("/:id", protectRoute, async (request, response) => {
 
         if(instructor.user.toString() !== request.user._id.toString()) return response.status(401).json({message: "Unauthorized"});
 
+        await Subject.deleteMany({ instructorId: request.params.id });
+        
         //Delete image from Cloudinary
 
         if (instructor.image && instructor.image.includes("cloudinary")){
