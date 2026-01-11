@@ -14,7 +14,7 @@ const subjectSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    instructorId: { // Added: Link to instructor
+    instructorId: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Instructor',
         required: true,
