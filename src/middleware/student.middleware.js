@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import Student from "../models/User.js";
+import Student from "../models/Student.js"; // Ensure this model exists
 
 const protectRouteStudent = async (request, response, next) => {
     try {
@@ -10,19 +10,19 @@ const protectRouteStudent = async (request, response, next) => {
         }
         const token = authHeader.replace("Bearer ", "");
 
-        // Verify token (fix secret name)
-        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Corrected: no dot
+        // Verify token (ensure secret matches student login)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Find user (fix payload key to match _id)
-        const user = await Student.findById(decoded._id).select("-password"); // Changed to decoded._id
-        if (!user) {
+        // Find student (use Student model)
+        const student = await Student.findById(decoded._id).select("-password");
+        if (!student) {
             return response.status(401).json({ message: "Token is not valid" });
         }
 
-        request.user = user;
+        request.user = student; // Set to student
         next();
     } catch (error) {
-        console.error("Authentication error:", error.message); // More specific logging
+        console.error("Authentication error:", error.message);
         response.status(401).json({ message: "Token is not valid" });
     }
 };
