@@ -1,10 +1,10 @@
 import express from 'express';
 import Evaluation from '../models/Evaluation.js';
-import protectRouteStudent from '../middleware/student.middleware.js'; // Assuming student auth
+import protectRouteStudent from '../middleware/student.middleware.js'; 
+import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// POST: Create evaluation
 router.post('/', protectRouteStudent, async (req, res) => {
     try {
         const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
@@ -28,6 +28,54 @@ router.post('/', protectRouteStudent, async (req, res) => {
     } catch (error) {
         console.error('Error creating evaluation:', error);
         res.status(500).json({ message: error.message });
+    }
+});
+router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
+    try {
+        const { instructorId } = req.params;
+        const evaluations = await Evaluation.find({ instructorId }).populate('instructorId', 'name department');
+
+        // Group by schoolyear
+        const schoolYears = {};
+        evaluations.forEach(evaluation => {
+            if (!schoolYears[evaluation.schoolyear]) {
+                schoolYears[evaluation.schoolyear] = { semesters: new Set() };
+            }
+            schoolYears[evaluation.schoolyear].semesters.add(eval.semester);
+        });
+
+        const result = Object.keys(schoolYears).map(schoolyear => ({
+            schoolyear,
+            semesters: Array.from(schoolYears[schoolyear].semesters),
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching evaluations:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async (req, res) => {
+    try {
+        const { instructorId, schoolyear, semester } = req.params;
+        const evaluations = await Evaluation.find({ instructorId, schoolyear, semester }).distinct('title');
+        res.json(evaluations);
+    } catch (error) {
+        console.error('Error fetching subjects:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, async (req, res) => {
+    try {
+        const { instructorId, schoolyear, semester, title } = req.params;
+        const evaluations = await Evaluation.find({ instructorId, schoolyear, semester, title })
+            .populate('userId', 'name'); // Populate name from User
+        res.json(evaluations);
+    } catch (error) {
+        console.error('Error fetching evaluations:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
