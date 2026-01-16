@@ -79,4 +79,15 @@ router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, 
     }
 });
 
+router.get('/semesters/:instructorId/:schoolyear', protectRoute, async (req, res) => {
+    try {
+        const { instructorId, schoolyear } = req.params;
+        const evaluations = await Evaluation.find({ instructorId, schoolyear }).distinct('semester');
+        res.json(evaluations);
+    } catch (error) {
+        console.error('Error fetching semesters:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;
