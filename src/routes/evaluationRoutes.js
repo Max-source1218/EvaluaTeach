@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post('/', protectRouteStudent, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
+        const { title, semester, schoolyear, instructorId, userId, department, name, points } = req.body;
 
         if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
             return res.status(400).json({ message: 'All fields are required' });
