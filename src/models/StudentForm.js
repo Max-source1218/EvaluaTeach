@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const studentdetailSchema = new mongoose.Schema({
     name: {
         type: String,
+        required: true,
     },
     department: {
         type: String,

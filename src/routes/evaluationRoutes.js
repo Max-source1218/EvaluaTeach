@@ -20,6 +20,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
             instructorId,
             userId,
             department,
+            name,
             points,
         });
 
