@@ -7,32 +7,39 @@ import protectRoute from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.post("/", protectRoute, async (request, response) => {
-    try {
-        const { name, department, image } = request.body;
-        console.log("Received data:", { name, department, image: image.substring(0, 100) + "..." }); // Log partial image
+  try {
+    const { name, department, image } = request.body;
 
-        if (!image || !name || !department) return response.status(400).json({ message: "Please provide all fields" });
+    console.log("Received:", {
+      name,
+      department,
+      image: image ? image.substring(0, 80) + "..." : "NO IMAGE"
+    });
 
-        console.log("Attempting Cloudinary upload...");
-        const uploadResponse = await cloudinary.uploader.upload(image);
-        console.log("Cloudinary upload success:", uploadResponse.secure_url);
-
-        console.log("Saving to DB...");
-        const newInstructor = new Instructor({
-            name,
-            department,
-            image: uploadResponse.secure_url,
-            user: request.user._id,
-        });
-        await newInstructor.save();
-        console.log("DB save success");
-
-        response.status(201).json({ newInstructor });
-    } catch (error) {
-        console.error("Error creating instructor:", error.message); // More detailed log
-        console.error("Full error:", error); // Log stack trace
-        response.status(500).json({ message: error.message });
+    if (!name || !department || !image) {
+      return response.status(400).json({ message: "Missing fields" });
     }
+
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder: "instructors",
+      resource_type: "image"
+    });
+
+    const newInstructor = new Instructor({
+      name,
+      department,
+      image: uploadResponse.secure_url,
+      user: request.user._id,
+    });
+
+    await newInstructor.save();
+
+    response.status(201).json(newInstructor);
+
+  } catch (error) {
+    console.error("Create instructor error:", error);
+    response.status(500).json({ message: error.message });
+  }
 });
 
 // const response = await fetch("https://localhost:3000/api/instructors?page=1&limit=5");
