@@ -1,6 +1,6 @@
 import express from 'express';
 import Evaluation from '../models/Evaluation.js';
-import Student_Detail from '../models/Student_Detail.js'; 
+import Student_Detail from '../models/StudentForm.js'; 
 import protectRouteStudent from '../middleware/student.middleware.js'; 
 import protectRoute from '../middleware/auth.middleware.js';
 
