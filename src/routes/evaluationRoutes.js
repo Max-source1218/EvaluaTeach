@@ -1,5 +1,6 @@
 import express from 'express';
 import Evaluation from '../models/Evaluation.js';
+import Student_Detail from '../models/Student_Detail.js'; 
 import protectRouteStudent from '../middleware/student.middleware.js'; 
 import protectRoute from '../middleware/auth.middleware.js';
 
@@ -7,10 +8,16 @@ const router = express.Router();
 
 router.post('/', protectRouteStudent, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, name, points } = req.body;
+        const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
 
         if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
             return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        // Fetch the name from Student_Detail using userId
+        const studentDetail = await Student_Detail.findOne({ user: userId });
+        if (!studentDetail) {
+            return res.status(404).json({ message: 'Student details not found' });
         }
 
         const newEvaluation = new Evaluation({
@@ -20,7 +27,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
             instructorId,
             userId,
             department,
-            name,
+            name: studentDetail.name, // Added: Reference name from Student_Detail
             points,
         });
 

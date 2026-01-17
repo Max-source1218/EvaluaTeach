@@ -30,7 +30,11 @@ const evaluationSchema = new mongoose.Schema({
         required: true,
         enum: ['CCIT', 'CTE', 'CBAPA'], // Corrected enum
     },
-    points: { // Integer field (corrected to Number)
+    name: { 
+        type: String,
+        required: true,
+    },
+    points: { 
         type: Number,
         required: true,
     },
