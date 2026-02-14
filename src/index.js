@@ -9,6 +9,7 @@ import studentRoutes from "./routes/studentRoutes.js";
 import subjectRoutes from "./routes/subjectRoutes.js";
 import StudentDetailRoutes from "./routes/studentDetailRoutes.js";
 import evaluationRoutes from "./routes/evaluationRoutes.js"
+import facultyRoutes from "./routes/facultyRoutes.js";
 
 import {connectDB} from "./lib/db.js";
 
@@ -26,6 +27,7 @@ app.use("/api/student", studentRoutes);
 app.use("/api/subject", subjectRoutes);
 app.use("/api/form", StudentDetailRoutes);
 app.use("/api/evaluation", evaluationRoutes);
+app.use("/api/faculty", facultyRoutes);
 
 app.listen(PORT, () =>{
     console.log("Port is running on", PORT);
