@@ -10,6 +10,8 @@ import subjectRoutes from "./routes/subjectRoutes.js";
 import StudentDetailRoutes from "./routes/studentDetailRoutes.js";
 import evaluationRoutes from "./routes/evaluationRoutes.js"
 import facultyRoutes from "./routes/facultyRoutes.js";
+import supervisorDetailRoutes from "./routes/supervisorDetailRoutes.js";
+import supervisorEvaluationRoutes from "./routes/supervisor_evaluationRoutes.js";
 
 import {connectDB} from "./lib/db.js";
 
@@ -28,6 +30,8 @@ app.use("/api/subject", subjectRoutes);
 app.use("/api/form", StudentDetailRoutes);
 app.use("/api/evaluation", evaluationRoutes);
 app.use("/api/faculty", facultyRoutes);
+app.use("/api/Supervisor_Detail", supervisorDetailRoutes);
+app.use("/api/Supervisor_Evaluation", supervisorEvaluationRoutes);
 
 app.listen(PORT, () =>{
     console.log("Port is running on", PORT);
