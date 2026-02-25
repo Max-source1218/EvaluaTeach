@@ -1,23 +1,24 @@
+// models/Student_Faculty_Evaluation.js
 import mongoose from "mongoose";
 
-const evaluationSchema = new mongoose.Schema({
-    title: { // Referencing 'title' from the Subject schema
+const student_faculty_evaluationSchema = new mongoose.Schema({
+    title: {
         type: String,
         required: true,
     },
-    semester: { // Referencing 'semester' from the Student_Detail schema
+    semester: {
         type: String,
         required: true,
         enum: ['1st Semester', '2nd Semester'],
     },
-    schoolyear: { // Referencing 'schoolyear' from the Student_Detail schema
+    schoolyear: {
         type: String,
         required: true,
         enum: ['2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028'],
     },
-    instructorId: { // Refs Instructor to access 'name' and 'department'
+    facultyId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Instructor',
+        ref: 'Faculty', // Faculty members are in Faculty model
         required: true,
     },
     userId: { 
@@ -28,7 +29,7 @@ const evaluationSchema = new mongoose.Schema({
     department: {
         type: String,
         required: true,
-        enum: ['CCIT', 'CTE', 'CBAPA'], // Corrected enum
+        enum: ['CCIT', 'CTE', 'CBAPA'],
     },
     name: { 
         type: String,
@@ -40,6 +41,5 @@ const evaluationSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Evaluation = mongoose.model("Evaluation", evaluationSchema);
-
-export default Evaluation;
+const Student_Faculty_Evaluation = mongoose.model("Student_Faculty_Evaluation", student_faculty_evaluationSchema);
+export default Student_Faculty_Evaluation;

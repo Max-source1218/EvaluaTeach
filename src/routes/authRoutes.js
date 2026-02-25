@@ -4,16 +4,15 @@ import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-// Updated: Use '_id' in payload to match protectRoute's expectation
 const generateToken = (userId) => {
-    return jwt.sign({ _id: userId }, process.env.JWT_SECRET, { expiresIn: "15d" }); // Changed 'userId' to '_id'
+    return jwt.sign({ _id: userId }, process.env.JWT_SECRET, { expiresIn: "15d" });
 };
 
 router.post("/register", async (request, response) => {
     try {
-        const { email, username, password } = request.body;
+        const { email, username, password, role } = request.body;
 
-        if (!email || !username || !password) {
+        if (!email || !username || !password || !role) {
             return response.status(400).json({ message: "All fields are required" });
         }
 
@@ -23,6 +22,10 @@ router.post("/register", async (request, response) => {
 
         if (username.length < 3) {
             return response.status(400).json({ message: "Username should be at least 3 characters long" });
+        }
+
+        if (!['Program Chair', 'Supervisor'].includes(role)) {
+            return response.status(400).json({ message: "Invalid role selected" });
         }
 
         const existingEmail = await User.findOne({ email });
@@ -42,11 +45,12 @@ router.post("/register", async (request, response) => {
             username,
             password,
             profileImage,
+            role,
         });
 
         await user.save();
 
-        const token = generateToken(user._id); // Now uses '_id'
+        const token = generateToken(user._id);
 
         response.status(201).json({
             token,
@@ -55,6 +59,7 @@ router.post("/register", async (request, response) => {
                 username: user.username,
                 email: user.email,
                 profileImage: user.profileImage,
+                role: user.role,
             },
         });
     } catch (error) {
@@ -70,20 +75,21 @@ router.post("/login", async (request, response) => {
         if (!email || !password) return response.status(400).json({ message: "All fields are required" });
 
         const user = await User.findOne({ email });
-        if (!user) return response.status(400).json({ message: "This username is not found" }); // Note: Message says "username" but checks email—consider updating to "User not found"
+        if (!user) return response.status(400).json({ message: "User not found" });
 
         const isPasswordCorrect = await user.comparePassword(password);
         if (!isPasswordCorrect) return response.status(400).json({ message: "Wrong Password" });
 
-        const token = generateToken(user._id); // Now uses '_id'
+        const token = generateToken(user._id);
 
         response.status(200).json({
             token,
             user: {
-                id: user._id, // Note: 'id' instead of '_id'—keep consistent if needed
+                _id: user._id,
                 username: user.username,
                 email: user.email,
                 profileImage: user.profileImage,
+                role: user.role,
                 createdAt: user.createdAt,
             },
         });

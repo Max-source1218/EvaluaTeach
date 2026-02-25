@@ -1,6 +1,7 @@
+// models/Faculty_Evaluation.js
 import mongoose from "mongoose";
 
-const supervisor_evaluationSchema = new mongoose.Schema({
+const faculty_evaluationSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
@@ -15,15 +16,14 @@ const supervisor_evaluationSchema = new mongoose.Schema({
         required: true,
         enum: ['2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028'],
     },
-    // Fixed: Reference 'User' instead of 'Instructor'
-    instructorId: {
+    facultyId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Program Chairs are stored in User model
+        ref: 'Faculty', // Faculty members are stored in Faculty model
         required: true,
     },
     userId: { 
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Supervisor is also in User model
+        ref: 'User', // Program Chair is in User model
         required: true,
     },
     department: {
@@ -41,5 +41,5 @@ const supervisor_evaluationSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Supervisor_Evaluation = mongoose.model("Supervisor_Evaluation", supervisor_evaluationSchema);
-export default Supervisor_Evaluation;
+const Faculty_Evaluation = mongoose.model("Faculty_Evaluation", faculty_evaluationSchema);
+export default Faculty_Evaluation;

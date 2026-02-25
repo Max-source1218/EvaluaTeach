@@ -8,19 +8,22 @@ const subjectSchema = new mongoose.Schema({
     semester: {
         type: String,
         required: true,
-        enum: ['1st Semester', '2nd Semester'], // Optional: restrict to valid options
+        enum: ['1st Semester', '2nd Semester'],
     },
     schoolyear: {
         type: String,
         required: true,
     },
-    instructorId: { 
+    // Can reference either User (Program Chair/Supervisor) or Faculty
+    user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Instructor',
-        required: true,
+        ref: 'User',
     },
-}, { timestamps: true }); // Added timestamps
+    faculty: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Faculty',
+    },
+}, { timestamps: true });
 
 const Subject = mongoose.model("Subject", subjectSchema);
-
 export default Subject;

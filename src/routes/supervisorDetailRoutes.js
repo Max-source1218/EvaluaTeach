@@ -9,14 +9,14 @@ router.post('/', protectRoute, async (req, res) => {
     try {
         const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
 
+        // Fixed: points === undefined instead of points === )
         if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Fetch the name from Student_Detail using userId
         const supervisorDetail = await Supervisor_Detail.findOne({ user: userId });
-        if (!studentDetail) {
-            return res.status(404).json({ message: 'Student details not found' });
+        if (!supervisorDetail) {
+            return res.status(404).json({ message: 'Supervisor details not found' });
         }
 
         const newEvaluation = new Supervisor_evaluation({
@@ -26,7 +26,7 @@ router.post('/', protectRoute, async (req, res) => {
             instructorId,
             userId,
             department,
-            name: supervisorDetail.name, // Added: Reference name from Student_Detail
+            name: supervisorDetail.name,
             points,
         });
 
@@ -37,18 +37,19 @@ router.post('/', protectRoute, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     try {
         const { instructorId } = req.params;
         const evaluations = await Supervisor_evaluation.find({ instructorId }).populate('instructorId', 'name department');
 
-        // Group by schoolyear
         const schoolYears = {};
         evaluations.forEach(evaluation => {
             if (!schoolYears[evaluation.schoolyear]) {
                 schoolYears[evaluation.schoolyear] = { semesters: new Set() };
             }
-            schoolYears[evaluation.schoolyear].semesters.add(eval.semester);
+            // Fixed: evaluation.semester instead of eval.semester
+            schoolYears[evaluation.schoolyear].semesters.add(evaluation.semester);
         });
 
         const result = Object.keys(schoolYears).map(schoolyear => ({
@@ -78,7 +79,7 @@ router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, 
     try {
         const { instructorId, schoolyear, semester, title } = req.params;
         const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear, semester, title })
-            .populate('userId', 'name'); // Populate name from User
+            .populate('userId', 'name');
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching evaluations:', error);

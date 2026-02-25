@@ -9,15 +9,13 @@ router.post('/', protectRoute, async (req, res) => {
     try {
         const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
 
-        // Fixed: points === undefined instead of points === )
+        // Removed year_level and course validation
         if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Fetch the name from Supervisor_Detail using userId
         const supervisorDetail = await Supervisor_Detail.findOne({ user: userId });
         if (!supervisorDetail) {
-            // Fixed: Changed "Student" to "Supervisor"
             return res.status(404).json({ message: 'Supervisor details not found' });
         }
 
@@ -45,13 +43,11 @@ router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
         const { instructorId } = req.params;
         const evaluations = await Supervisor_evaluation.find({ instructorId }).populate('instructorId', 'name department');
 
-        // Group by schoolyear
         const schoolYears = {};
         evaluations.forEach(evaluation => {
             if (!schoolYears[evaluation.schoolyear]) {
                 schoolYears[evaluation.schoolyear] = { semesters: new Set() };
             }
-            // Fixed: eval.semester -> evaluation.semester
             schoolYears[evaluation.schoolyear].semesters.add(evaluation.semester);
         });
 

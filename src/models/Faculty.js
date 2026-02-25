@@ -21,6 +21,11 @@ const facultySchema = new mongoose.Schema({
         type: String,
         default: "",
     },
+    department: {
+        type: String,
+        required: true,
+        enum: ['CCIT', 'CTE', 'CBAPA'],
+    },
 }, { timestamps: true });
 
 // Hash password before saving user to DB
@@ -31,9 +36,8 @@ facultySchema.pre("save", async function() {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
     } catch (err) {
-        // Handle errors explicitly (e.g., log or throw to fail the save)
         console.error("Error hashing password:", err);
-        throw err;  // This will reject the save promise
+        throw err;
     }
 });
 

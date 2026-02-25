@@ -1,94 +1,151 @@
 import express from "express";
 import Subject from "../models/Subject.js";
+import User from "../models/User.js";
+import Faculty from "../models/Faculty.js";
 import protectRoute from "../middleware/auth.middleware.js";
 import protectRouteStudent from "../middleware/student.middleware.js";
-import Instructor from '../models/Instructor.js';
 
 const router = express.Router();
 
-router.post("/", protectRoute, async (req, res) => {
-    
-    try{
-    const {title, semester, schoolyear, instructorId} = req.body;
+// Create a new subject
+router.post('/', protectRoute, async (request, response) => {
+    try {
+        const { title, semester, schoolyear, department, instructorId } = request.body;
 
-    if(!title || !semester || !schoolyear || !instructorId) return res.status(400).json({message: "Please provide all details"})
+        // Determine which model to reference based on user role
+        const user = await User.findById(instructorId);
+        
+        let subjectData = {
+            title,
+            semester,
+            schoolyear,
+            department,
+        };
+        
+        if (user) {
+            // It's a Program Chair or Supervisor (User model)
+            subjectData.user = instructorId;
+        } else {
+            // Check if it's a Faculty member
+            const faculty = await Faculty.findById(instructorId);
+            if (faculty) {
+                subjectData.faculty = instructorId;
+            } else {
+                return response.status(404).json({ message: 'Instructor not found' });
+            }
+        }
 
-    const newSubject = new Subject({
-        title,
-        semester,
-        schoolyear,
-        instructorId
-    });
-    await newSubject.save();
-    console.log("DB save success");
-
-    res.status(201).json({newSubject});
-
-    }catch(err){
-        console.log("Error creating subject for instructor: ", err.message)
-        console.log("Full Error:", err)
-        res.status(500).json({message: err.message})
+        const newSubject = new Subject(subjectData);
+        await newSubject.save();
+        response.status(201).json(newSubject);
+    } catch (error) {
+        console.error('Error creating subject:', error);
+        response.status(500).json({ message: error.message });
     }
 });
 
-router.get("/user", protectRouteStudent, async (request, response) => {
+// Get subjects for a specific user (Program Chair/Supervisor)
+router.get("/user", protectRoute, async (request, response) => {
     try {
         const subjects = await Subject.find({ user: request.user._id }).sort({ createdAt: -1 });
         response.json(subjects);
     } catch (error) {
-        console.error("Get user Evaluation form error", error.message);
+        console.error("Get user subjects error", error.message);
         response.status(500).json({ message: "Server error" });
     }
 });
 
-router.delete("/:id", protectRoute, async (request, response) => {
-    try{
-        const subject = await Subject.findById(request.params.id);
-        if(!subject) return response.status(404).json({message: "Subject for instructor not found"});
-
-        if(subject.user.toString() !== request.user._id.toString()) return response.status(401).json({message: "Unauthorized"});
-
-        await instructor.deleteOne();
-
-        response.json({message: "Subject deleted successfully"});
-
-    }catch(error){
-        console.log("Error deleting subject", error)
-        response.status(500).json({message: "Internal server error"})
+// Get subjects for a specific faculty
+router.get("/faculty/:facultyId", protectRouteStudent, async (request, response) => {
+    try {
+        const subjects = await Subject.find({ faculty: request.params.facultyId }).sort({ createdAt: -1 });
+        response.json(subjects);
+    } catch (error) {
+        console.error("Get faculty subjects error", error.message);
+        response.status(500).json({ message: "Server error" });
     }
 });
 
-router.get('/filter', async (req, res) => {
+// Delete a subject
+router.delete("/:id", protectRoute, async (request, response) => {
     try {
-        const { schoolyear, semester } = req.query;
+        const subject = await Subject.findById(request.params.id);
+        if (!subject) return response.status(404).json({ message: "Subject not found" });
 
-        if (!schoolyear || !semester) {
-            return res.status(400).json({ message: 'Schoolyear and semester are required' });
+        // Check if user owns this subject
+        if (subject.user && subject.user.toString() !== request.user._id.toString()) {
+            return response.status(401).json({ message: "Unauthorized" });
         }
 
-        // Find subjects matching schoolyear and semester
-        const subjects = await Subject.find({ schoolyear, semester })
-            .populate('instructorId', 'name department image') // Populate instructor details
-            .sort({ createdAt: -1 });
+        await Subject.findByIdAndDelete(request.params.id);
+        response.json({ message: "Subject deleted successfully" });
+    } catch (error) {
+        console.log("Error deleting subject", error);
+        response.status(500).json({ message: "Internal server error" });
+    }
+});
 
-        // Get unique instructors from the subjects
-        const instructorMap = new Map();
+// Filter subjects by schoolyear, semester, department, and type
+router.get('/filter', protectRouteStudent, async (req, res) => {
+    try {
+        const { schoolyear, semester, department, type } = req.query;
+
+        if (!schoolyear || !semester || !department) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        let subjects;
+        
+        if (type === 'faculty') {
+            // Fetch subjects for Faculty
+            subjects = await Subject.find({ schoolyear, semester, department })
+                .populate('faculty', 'name department profileImage');
+        } else {
+            // Fetch subjects for Program Chairs (default)
+            subjects = await Subject.find({ schoolyear, semester, department })
+                .populate('user', 'name department');
+        }
+
+        // Group by instructor/faculty
+        const instructorsMap = {};
+        
         subjects.forEach(subject => {
-            const instructor = subject.instructorId;
-            if (instructor && !instructorMap.has(instructor._id)) {
-                instructorMap.set(instructor._id, {
-                    ...instructor.toObject(),
-                    subjects: subjects.filter(s => s.instructorId._id.equals(instructor._id)).map(s => ({ title: s.title, _id: s._id }))
-                });
+            let userId, userName, userDepartment, userProfileImage;
+            
+            if (type === 'faculty') {
+                userId = subject.faculty?._id?.toString();
+                userName = subject.faculty?.name;
+                userDepartment = subject.faculty?.department;
+                userProfileImage = subject.faculty?.profileImage;
+            } else {
+                userId = subject.user?._id?.toString();
+                userName = subject.user?.name;
+                userDepartment = subject.user?.department;
+                userProfileImage = subject.user?.profileImage;
             }
+            
+            if (!instructorsMap[userId]) {
+                instructorsMap[userId] = {
+                    _id: userId,
+                    name: userName || 'Unknown',
+                    department: userDepartment || department,
+                    profileImage: userProfileImage,
+                    subjects: [],
+                };
+            }
+            
+            instructorsMap[userId].subjects.push({
+                _id: subject._id,
+                title: subject.title,
+            });
         });
 
-        const instructors = Array.from(instructorMap.values());
-
+        const instructors = Object.values(instructorsMap);
         res.json({ instructors });
     } catch (error) {
         console.error('Error filtering subjects:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 export default router;
