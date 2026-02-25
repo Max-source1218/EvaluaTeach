@@ -1,3 +1,4 @@
+// models/Subject.js
 import mongoose from "mongoose";
 
 const subjectSchema = new mongoose.Schema({
@@ -13,15 +14,20 @@ const subjectSchema = new mongoose.Schema({
     schoolyear: {
         type: String,
         required: true,
+        enum: ['2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028'],
     },
-    // Can reference either User (Program Chair/Supervisor) or Faculty
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+    department: {  // ✅ This field must exist!
+        type: String,
+        required: true,
+        enum: ['CCIT', 'CTE', 'CBAPA'],
     },
     faculty: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Faculty',
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
     },
 }, { timestamps: true });
 

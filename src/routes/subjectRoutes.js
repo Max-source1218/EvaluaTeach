@@ -80,8 +80,9 @@ router.delete("/:id", protectRoute, async (request, response) => {
     }
 });
 
+// routes/subjectRoutes.js
+
 // Filter subjects by schoolyear, semester, department, and type
-// ✅ Changed: protectRouteStudent → protectRoute
 router.get('/filter', protectRoute, async (req, res) => {
     try {
         const { schoolyear, semester, department, type } = req.query;
@@ -93,13 +94,22 @@ router.get('/filter', protectRoute, async (req, res) => {
         let subjects;
         
         if (type === 'faculty') {
-            subjects = await Subject.find({ schoolyear, semester, department })
-                .populate('faculty', 'name department profileImage');
+            // Fetch subjects for Faculty
+            subjects = await Subject.find({ 
+                schoolyear, 
+                semester, 
+                department 
+            }).populate('faculty', 'name department profileImage');
         } else {
-            subjects = await Subject.find({ schoolyear, semester, department })
-                .populate('user', 'name department');
+            // Fetch subjects for Program Chairs (default)
+            subjects = await Subject.find({ 
+                schoolyear, 
+                semester, 
+                department 
+            }).populate('user', 'name department');
         }
 
+        // Group by instructor/faculty
         const instructorsMap = {};
         
         subjects.forEach(subject => {
