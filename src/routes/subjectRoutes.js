@@ -12,9 +12,6 @@ router.post('/', protectRoute, async (request, response) => {
     try {
         const { title, semester, schoolyear, department, instructorId } = request.body;
 
-        // Determine which model to reference based on user role
-        const user = await User.findById(instructorId);
-        
         let subjectData = {
             title,
             semester,
@@ -22,11 +19,10 @@ router.post('/', protectRoute, async (request, response) => {
             department,
         };
         
+        const user = await User.findById(instructorId);
         if (user) {
-            // It's a Program Chair or Supervisor (User model)
             subjectData.user = instructorId;
         } else {
-            // Check if it's a Faculty member
             const faculty = await Faculty.findById(instructorId);
             if (faculty) {
                 subjectData.faculty = instructorId;
@@ -72,7 +68,6 @@ router.delete("/:id", protectRoute, async (request, response) => {
         const subject = await Subject.findById(request.params.id);
         if (!subject) return response.status(404).json({ message: "Subject not found" });
 
-        // Check if user owns this subject
         if (subject.user && subject.user.toString() !== request.user._id.toString()) {
             return response.status(401).json({ message: "Unauthorized" });
         }
@@ -86,7 +81,8 @@ router.delete("/:id", protectRoute, async (request, response) => {
 });
 
 // Filter subjects by schoolyear, semester, department, and type
-router.get('/filter', protectRouteStudent, async (req, res) => {
+// ✅ Changed: protectRouteStudent → protectRoute
+router.get('/filter', protectRoute, async (req, res) => {
     try {
         const { schoolyear, semester, department, type } = req.query;
 
@@ -97,16 +93,13 @@ router.get('/filter', protectRouteStudent, async (req, res) => {
         let subjects;
         
         if (type === 'faculty') {
-            // Fetch subjects for Faculty
             subjects = await Subject.find({ schoolyear, semester, department })
                 .populate('faculty', 'name department profileImage');
         } else {
-            // Fetch subjects for Program Chairs (default)
             subjects = await Subject.find({ schoolyear, semester, department })
                 .populate('user', 'name department');
         }
 
-        // Group by instructor/faculty
         const instructorsMap = {};
         
         subjects.forEach(subject => {
