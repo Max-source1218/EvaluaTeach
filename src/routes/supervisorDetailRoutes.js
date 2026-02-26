@@ -1,100 +1,67 @@
+// routes/supervisorDetailRoutes.js
 import express from 'express';
-import Supervisor_evaluation from '../models/Supervisor_evaluation.js';
-import Supervisor_Detail from '../models/SupervisorForm.js'; 
+import SupervisorForm from '../models/SupervisorForm.js';
 import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Save or update Program Chair details
 router.post('/', protectRoute, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
+        const { name, department, schoolyear, semester, role } = req.body;
+        const userId = req.user._id;
 
-        // Fixed: points === undefined instead of points === )
-        if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
-            return res.status(400).json({ message: 'All fields are required' });
+        if (!department || !schoolyear || !semester || !role) {
+            return res.status(400).json({ message: 'All required fields must be filled' });
         }
 
-        const supervisorDetail = await Supervisor_Detail.findOne({ user: userId });
-        if (!supervisorDetail) {
-            return res.status(404).json({ message: 'Supervisor details not found' });
+        // Check if already exists
+        let existingForm = await SupervisorForm.findOne({ user: userId });
+
+        if (existingForm) {
+            // Update existing
+            existingForm.name = name || existingForm.name;
+            existingForm.department = department;
+            existingForm.schoolyear = schoolyear;
+            existingForm.semester = semester;
+            existingForm.role = role;
+            
+            await existingForm.save();
+            res.status(200).json({ message: 'Details updated successfully', form: existingForm });
+        } else {
+            // Create new
+            const newForm = new SupervisorForm({
+                user: userId,
+                name: name || '',
+                department,
+                schoolyear,
+                semester,
+                role,
+            });
+
+            await newForm.save();
+            res.status(201).json({ message: 'Details saved successfully', form: newForm });
         }
-
-        const newEvaluation = new Supervisor_evaluation({
-            title,
-            semester,
-            schoolyear,
-            instructorId,
-            userId,
-            department,
-            name: supervisorDetail.name,
-            points,
-        });
-
-        await newEvaluation.save();
-        res.status(201).json({ message: 'Evaluation submitted successfully', evaluation: newEvaluation });
     } catch (error) {
-        console.error('Error creating evaluation:', error);
+        console.error('Error saving supervisor form:', error);
         res.status(500).json({ message: error.message });
     }
 });
 
-router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
+// Get current user's (Program Chair/Supervisor) details
+router.get('/', protectRoute, async (req, res) => {
     try {
-        const { instructorId } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId }).populate('instructorId', 'name department');
+        const userId = req.user._id;
+        const form = await SupervisorForm.findOne({ user: userId });
 
-        const schoolYears = {};
-        evaluations.forEach(evaluation => {
-            if (!schoolYears[evaluation.schoolyear]) {
-                schoolYears[evaluation.schoolyear] = { semesters: new Set() };
-            }
-            // Fixed: evaluation.semester instead of eval.semester
-            schoolYears[evaluation.schoolyear].semesters.add(evaluation.semester);
-        });
+        if (!form) {
+            return res.status(404).json({ message: 'No details found' });
+        }
 
-        const result = Object.keys(schoolYears).map(schoolyear => ({
-            schoolyear,
-            semesters: Array.from(schoolYears[schoolyear].semesters),
-        }));
-
-        res.json(result);
+        res.json(form);
     } catch (error) {
-        console.error('Error fetching evaluations:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async (req, res) => {
-    try {
-        const { instructorId, schoolyear, semester } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear, semester }).distinct('title');
-        res.json(evaluations);
-    } catch (error) {
-        console.error('Error fetching subjects:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, async (req, res) => {
-    try {
-        const { instructorId, schoolyear, semester, title } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear, semester, title })
-            .populate('userId', 'name');
-        res.json(evaluations);
-    } catch (error) {
-        console.error('Error fetching evaluations:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-router.get('/semesters/:instructorId/:schoolyear', protectRoute, async (req, res) => {
-    try {
-        const { instructorId, schoolyear } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear }).distinct('semester');
-        res.json(evaluations);
-    } catch (error) {
-        console.error('Error fetching semesters:', error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching supervisor form:', error);
+        res.status(500).json({ message: error.message });
     }
 });
 
