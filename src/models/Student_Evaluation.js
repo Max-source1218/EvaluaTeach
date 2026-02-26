@@ -1,7 +1,6 @@
-// models/Student_Faculty_Evaluation.js
 import mongoose from "mongoose";
 
-const student_faculty_evaluationSchema = new mongoose.Schema({
+const studentEvaluationSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
@@ -16,11 +15,17 @@ const student_faculty_evaluationSchema = new mongoose.Schema({
         required: true,
         enum: ['2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028'],
     },
-    facultyId: {
+    // Can be either Faculty OR Program Chair
+    evaluatorId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Faculty', // Faculty members are in Faculty model
         required: true,
     },
+    evaluatorType: {
+        type: String,
+        required: true,
+        enum: ['faculty', 'programchair'],
+    },
+    // Student who submitted the evaluation
     userId: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Student', 
@@ -31,6 +36,7 @@ const student_faculty_evaluationSchema = new mongoose.Schema({
         required: true,
         enum: ['CCIT', 'CTE', 'CBAPA'],
     },
+    // Student's name from Student_Detail
     name: { 
         type: String,
         required: true,
@@ -41,5 +47,9 @@ const student_faculty_evaluationSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Student_Faculty_Evaluation = mongoose.model("Student_Faculty_Evaluation", student_faculty_evaluationSchema);
-export default Student_Faculty_Evaluation;
+// Index for faster queries
+studentEvaluationSchema.index({ evaluatorId: 1, schoolyear: 1, semester: 1 });
+studentEvaluationSchema.index({ userId: 1 });
+
+const StudentEvaluation = mongoose.model("StudentEvaluation", studentEvaluationSchema);
+export default StudentEvaluation;

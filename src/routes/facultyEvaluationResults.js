@@ -1,6 +1,6 @@
 import express from 'express';
 import Faculty_Evaluation from '../models/Faculty_Evaluation.js';
-import Student_Faculty_Evaluation from '../models/Student_Faculty_Evaluation.js';
+import Student_Faculty_Evaluation from '../models/Student_Evaluation.js';
 import protectRouteFaculty from '../middleware/faculty.middleware.js';
 
 const router = express.Router();
