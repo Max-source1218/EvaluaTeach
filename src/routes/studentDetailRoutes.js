@@ -1,8 +1,6 @@
 import express from "express";
 import Student_Detail from "../models/StudentForm.js";
 import Subject from "../models/Subject.js";
-import User from "../models/User.js";
-import Faculty from "../models/Faculty.js";
 import protectRouteStudent from "../middleware/student.middleware.js";
 
 const router = express.Router();
@@ -11,11 +9,33 @@ const router = express.Router();
 router.post("/", protectRouteStudent, async (req, res) => {
     try {
         const { name, department, course, year_level, schoolyear, semester } = req.body;
+        const userId = req.user._id;
+
+        console.log('=== CREATE STUDENT DETAIL ===');
+        console.log('User ID:', userId);
 
         if (!department || !course || !year_level || !schoolyear || !semester) {
             return res.status(400).json({ message: "Please provide all required details" });
         }
 
+        // Check if student already has details
+        const existingDetail = await Student_Detail.findOne({ user: userId });
+        if (existingDetail) {
+            // Update existing
+            existingDetail.name = name || existingDetail.name;
+            existingDetail.department = department;
+            existingDetail.course = course;
+            existingDetail.year_level = year_level;
+            existingDetail.schoolyear = schoolyear;
+            existingDetail.semester = semester;
+            
+            await existingDetail.save();
+            console.log("Student detail updated:", existingDetail._id);
+            
+            return res.status(200).json({ message: 'Details updated successfully', newForm: existingDetail });
+        }
+
+        // Create new
         const newForm = new Student_Detail({
             name,
             department,
@@ -23,7 +43,7 @@ router.post("/", protectRouteStudent, async (req, res) => {
             year_level,
             schoolyear,
             semester,
-            user: req.user._id,
+            user: userId,
         });
         
         await newForm.save();
@@ -39,10 +59,16 @@ router.post("/", protectRouteStudent, async (req, res) => {
 // Get current student's detail
 router.get("/user", protectRouteStudent, async (req, res) => {
     try {
-        const studentForm = await Student_Detail.findOne({ user: req.user._id });
+        const userId = req.user._id;
+        console.log('=== GET STUDENT DETAIL ===');
+        console.log('User ID:', userId);
+
+        const studentForm = await Student_Detail.findOne({ user: userId });
         if (!studentForm) {
             return res.status(404).json({ message: 'No details found' });
         }
+        
+        console.log('Student detail found:', studentForm._id);
         res.json(studentForm);
     } catch (error) {
         console.error("Get student details error", error.message);
@@ -93,14 +119,14 @@ router.get('/evaluators', protectRouteStudent, async (req, res) => {
             let evaluatorId, evaluatorName, evaluatorType, evaluatorDepartment;
             
             // Check if it's a Faculty subject
-            if (subject.faculty) {
+            if (subject.faculty && subject.faculty._id) {
                 evaluatorId = subject.faculty._id.toString();
                 evaluatorName = subject.faculty.username;
                 evaluatorType = 'faculty';
                 evaluatorDepartment = subject.faculty.department;
             }
             // Check if it's a Program Chair (User) subject
-            else if (subject.user) {
+            else if (subject.user && subject.user._id) {
                 evaluatorId = subject.user._id.toString();
                 evaluatorName = subject.user.username;
                 evaluatorType = 'programchair';
@@ -131,6 +157,9 @@ router.get('/evaluators', protectRouteStudent, async (req, res) => {
         // Separate into two arrays for easier frontend handling
         const facultyEvaluators = evaluators.filter(e => e.type === 'faculty');
         const programChairEvaluators = evaluators.filter(e => e.type === 'programchair');
+
+        console.log('Faculty evaluators:', facultyEvaluators.length);
+        console.log('Program Chair evaluators:', programChairEvaluators.length);
 
         res.json({
             faculty: facultyEvaluators,
