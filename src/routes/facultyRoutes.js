@@ -2,15 +2,45 @@ import express from 'express';
 import Faculty from "../models/Faculty.js";
 import jwt from "jsonwebtoken";
 import protectRoute from "../middleware/auth.middleware.js";
+import cloudinary from 'cloudinary';
+import multer from 'multer';
+import streamifier from 'streamifier';
+
+// Configure Cloudinary
+cloudinary.v2.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const router = express.Router();
+
+// Multer for handling multipart/form-data
+const upload = multer({ storage: multer.memoryStorage() });
 
 const generateToken = (userId) => {
     return jwt.sign({ _id: userId }, process.env.JWT_SECRET, { expiresIn: "15d" });
 };
 
+// Helper function to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer) => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.v2.uploader.upload_stream(
+            { folder: 'faculty_profiles' },
+            (error, result) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(result.secure_url);
+                }
+            }
+        );
+        streamifier.createReadStream(buffer).pipe(uploadStream);
+    });
+};
+
 // Register Faculty (Admin only)
-router.post("/register", protectRoute, async (request, response) => {
+router.post("/register", protectRoute, upload.single('profileImage'), async (request, response) => {
     try {
         const { email, username, password, department } = request.body;
 
@@ -41,7 +71,19 @@ router.post("/register", protectRoute, async (request, response) => {
             return response.status(400).json({ message: "Username already exists" });
         }
 
-        const profileImage = request.body.profileImage || "https://api.dicebear.com/9.x/avataaars/svg?seed=George";
+        let profileImage = "https://api.dicebear.com/9.x/avataaars/svg?seed=George";
+
+        // Upload image to Cloudinary if provided
+        if (request.file) {
+            try {
+                console.log('=== UPLOADING TO CLOUDINARY ===');
+                profileImage = await uploadToCloudinary(request.file.buffer);
+                console.log('Cloudinary URL:', profileImage);
+            } catch (cloudinaryError) {
+                console.error('Cloudinary upload error:', cloudinaryError);
+                return response.status(500).json({ message: "Failed to upload image" });
+            }
+        }
 
         const faculty = new Faculty({
             email,
@@ -53,7 +95,6 @@ router.post("/register", protectRoute, async (request, response) => {
 
         await faculty.save();
 
-        // ✅ Removed token generation - admin doesn't need it
         response.status(201).json({
             message: "Faculty registered successfully",
             faculty: {
@@ -164,4 +205,4 @@ router.delete("/:id", protectRoute, async (request, response) => {
     }
 });
 
-export default router;
+export default router;  
