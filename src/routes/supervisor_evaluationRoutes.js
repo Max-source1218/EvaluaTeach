@@ -1,36 +1,36 @@
 import express from 'express';
-import Supervisor_evaluation from '../models/Supervisor_evaluation.js';
-import Supervisor_Detail from '../models/SupervisorForm.js'; 
+import Supervisor_Evaluation from '../models/Supervisor_evaluation.js';
+import SupervisorForm from '../models/SupervisorForm.js';
 import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Create new evaluation
 router.post('/', protectRoute, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
+        const { title, semester, schoolyear, instructorId, userId, department, points, name } = req.body;
 
-        // Removed year_level and course validation
+        console.log('=== POST /supervisor-evaluation ===');
+        console.log('req.body:', req.body);
+
         if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        const supervisorDetail = await Supervisor_Detail.findOne({ user: userId });
-        if (!supervisorDetail) {
-            return res.status(404).json({ message: 'Supervisor details not found' });
-        }
-
-        const newEvaluation = new Supervisor_evaluation({
+        const newEvaluation = new Supervisor_Evaluation({
             title,
             semester,
             schoolyear,
             instructorId,
             userId,
             department,
-            name: supervisorDetail.name,
+            name: name || 'Unknown',
             points,
         });
 
         await newEvaluation.save();
+        console.log('Evaluation saved:', newEvaluation._id);
+        
         res.status(201).json({ message: 'Evaluation submitted successfully', evaluation: newEvaluation });
     } catch (error) {
         console.error('Error creating evaluation:', error);
@@ -38,11 +38,16 @@ router.post('/', protectRoute, async (req, res) => {
     }
 });
 
+// Get evaluations for a specific instructor (Program Chair)
 router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     try {
         const { instructorId } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId }).populate('instructorId', 'name department');
+        const evaluations = await Supervisor_Evaluation.find({ instructorId })
+            .populate('instructorId', 'username department')
+            .populate('userId', 'username')
+            .sort({ createdAt: -1 });
 
+        // Group by schoolyear and semester
         const schoolYears = {};
         evaluations.forEach(evaluation => {
             if (!schoolYears[evaluation.schoolyear]) {
@@ -63,10 +68,16 @@ router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     }
 });
 
+// Get subjects for an instructor in specific semester/year
 router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear, semester }).distinct('title');
+        const evaluations = await Supervisor_Evaluation.find({ 
+            instructorId, 
+            schoolyear, 
+            semester 
+        }).distinct('title');
+        
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching subjects:', error);
@@ -74,11 +85,19 @@ router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async 
     }
 });
 
+// Get evaluation details
 router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester, title } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear, semester, title })
-            .populate('userId', 'name');
+        const evaluations = await Supervisor_Evaluation.find({ 
+            instructorId, 
+            schoolyear, 
+            semester, 
+            title 
+        })
+        .populate('userId', 'username')
+        .sort({ createdAt: -1 });
+        
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching evaluations:', error);
@@ -86,10 +105,15 @@ router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, 
     }
 });
 
+// Get semesters for a schoolyear
 router.get('/semesters/:instructorId/:schoolyear', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear } = req.params;
-        const evaluations = await Supervisor_evaluation.find({ instructorId, schoolyear }).distinct('semester');
+        const evaluations = await Supervisor_Evaluation.find({ 
+            instructorId, 
+            schoolyear 
+        }).distinct('semester');
+        
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching semesters:', error);
