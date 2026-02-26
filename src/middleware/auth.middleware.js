@@ -10,19 +10,21 @@ const protectRoute = async (request, response, next) => {
         }
         const token = authHeader.replace("Bearer ", "");
 
-        // Verify token (fix secret name)
-        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Corrected: no dot
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Decoded token:', decoded);
 
-        // Find user (fix payload key to match _id)
-        const user = await User.findById(decoded._id).select("-password"); // Changed to decoded._id
+        // Find user
+        const user = await User.findById(decoded._id).select("-password");
         if (!user) {
-            return response.status(401).json({ message: "Token is not valid" });
+            return response.status(401).json({ message: "Token is not valid - user not found" });
         }
 
+        console.log('Authenticated user:', user._id, user.role);
         request.user = user;
         next();
     } catch (error) {
-        console.error("Authentication error:", error.message); // More specific logging
+        console.error("Authentication error:", error.message);
         response.status(401).json({ message: "Token is not valid" });
     }
 };

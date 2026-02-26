@@ -1,19 +1,37 @@
-// routes/supervisorDetailRoutes.js
 import express from 'express';
 import SupervisorForm from '../models/SupervisorForm.js';
+import User from '../models/User.js';
 import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Save or update Program Chair details
+// Save or update Program Chair/Supervisor details
 router.post('/', protectRoute, async (req, res) => {
     try {
+        console.log('=== POST /supervisor-detail ===');
+        console.log('req.user:', req.user);
+        console.log('req.body:', req.body);
+
         const { name, department, schoolyear, semester, role } = req.body;
+
+        // ✅ Safe access to req.user
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({ message: 'User not authenticated properly' });
+        }
+
         const userId = req.user._id;
 
-        if (!department || !schoolyear || !semester || !role) {
+        if (!department || !schoolyear || !semester) {
             return res.status(400).json({ message: 'All required fields must be filled' });
         }
+
+        // ✅ Get role from body OR from user model
+        let userRole = role;
+        if (!userRole) {
+            userRole = req.user.role || 'Supervisor';
+        }
+
+        console.log('Saving with userId:', userId, 'role:', userRole);
 
         // Check if already exists
         let existingForm = await SupervisorForm.findOne({ user: userId });
@@ -24,7 +42,7 @@ router.post('/', protectRoute, async (req, res) => {
             existingForm.department = department;
             existingForm.schoolyear = schoolyear;
             existingForm.semester = semester;
-            existingForm.role = role;
+            existingForm.role = userRole;
             
             await existingForm.save();
             res.status(200).json({ message: 'Details updated successfully', form: existingForm });
@@ -36,7 +54,7 @@ router.post('/', protectRoute, async (req, res) => {
                 department,
                 schoolyear,
                 semester,
-                role,
+                role: userRole,
             });
 
             await newForm.save();
@@ -48,9 +66,16 @@ router.post('/', protectRoute, async (req, res) => {
     }
 });
 
-// Get current user's (Program Chair/Supervisor) details
+// Get current user's details
 router.get('/', protectRoute, async (req, res) => {
     try {
+        console.log('=== GET /supervisor-detail ===');
+        console.log('req.user:', req.user);
+
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({ message: 'User not authenticated properly' });
+        }
+
         const userId = req.user._id;
         const form = await SupervisorForm.findOne({ user: userId });
 
