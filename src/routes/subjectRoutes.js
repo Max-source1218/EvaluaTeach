@@ -83,6 +83,9 @@ router.delete("/:id", protectRoute, async (request, response) => {
 // routes/subjectRoutes.js
 
 // Filter subjects by schoolyear, semester, department, and type
+// routes/subjectRoutes.js
+
+// Filter subjects by schoolyear, semester, department, and type
 router.get('/filter', protectRoute, async (req, res) => {
     try {
         const { schoolyear, semester, department, type } = req.query;
@@ -94,14 +97,13 @@ router.get('/filter', protectRoute, async (req, res) => {
         let subjects;
         
         if (type === 'faculty') {
-            // Fetch subjects for Faculty
+            // ✅ Changed: populate 'username' instead of 'name'
             subjects = await Subject.find({ 
                 schoolyear, 
                 semester, 
                 department 
-            }).populate('faculty', 'name department profileImage');
+            }).populate('faculty', 'username department profileImage');
         } else {
-            // Fetch subjects for Program Chairs (default)
             subjects = await Subject.find({ 
                 schoolyear, 
                 semester, 
@@ -117,12 +119,13 @@ router.get('/filter', protectRoute, async (req, res) => {
             
             if (type === 'faculty') {
                 userId = subject.faculty?._id?.toString();
-                userName = subject.faculty?.name;
+                // ✅ Changed: use 'username' instead of 'name'
+                userName = subject.faculty?.username || subject.faculty?.name || 'Unknown';
                 userDepartment = subject.faculty?.department;
                 userProfileImage = subject.faculty?.profileImage;
             } else {
                 userId = subject.user?._id?.toString();
-                userName = subject.user?.name;
+                userName = subject.user?.name || 'Unknown';
                 userDepartment = subject.user?.department;
                 userProfileImage = subject.user?.profileImage;
             }
@@ -130,7 +133,7 @@ router.get('/filter', protectRoute, async (req, res) => {
             if (!instructorsMap[userId]) {
                 instructorsMap[userId] = {
                     _id: userId,
-                    name: userName || 'Unknown',
+                    name: userName,
                     department: userDepartment || department,
                     profileImage: userProfileImage,
                     subjects: [],
@@ -150,5 +153,4 @@ router.get('/filter', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
 export default router;
