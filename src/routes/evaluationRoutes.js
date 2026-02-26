@@ -1,5 +1,6 @@
 import express from 'express';
 import Student_Detail from '../models/StudentForm.js'; 
+import StudentEvaluation from '../models/Student_Evaluation.js'
 import protectRouteStudent from '../middleware/student.middleware.js'; 
 import protectRoute from '../middleware/auth.middleware.js';
 
@@ -19,7 +20,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
             return res.status(404).json({ message: 'Student details not found' });
         }
 
-        const newEvaluation = new Evaluation({
+        const newEvaluation = new StudentEvaluation({
             title,
             semester,
             schoolyear,
@@ -40,7 +41,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
 router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     try {
         const { instructorId } = req.params;
-        const evaluations = await Evaluation.find({ instructorId }).populate('instructorId', 'name department');
+        const evaluations = await StudentEvaluation.find({ instructorId }).populate('instructorId', 'name department');
 
         // Group by schoolyear
         const schoolYears = {};
@@ -66,7 +67,7 @@ router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
 router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester } = req.params;
-        const evaluations = await Evaluation.find({ instructorId, schoolyear, semester }).distinct('title');
+        const evaluations = await StudentEvaluation.find({ instructorId, schoolyear, semester }).distinct('title');
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching subjects:', error);
@@ -77,7 +78,7 @@ router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async 
 router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester, title } = req.params;
-        const evaluations = await Evaluation.find({ instructorId, schoolyear, semester, title })
+        const evaluations = await StudentEvaluation.find({ instructorId, schoolyear, semester, title })
             .populate('userId', 'name'); // Populate name from User
         res.json(evaluations);
     } catch (error) {
@@ -89,7 +90,7 @@ router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, 
 router.get('/semesters/:instructorId/:schoolyear', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear } = req.params;
-        const evaluations = await Evaluation.find({ instructorId, schoolyear }).distinct('semester');
+        const evaluations = await StudentEvaluation.find({ instructorId, schoolyear }).distinct('semester');
         res.json(evaluations);
     } catch (error) {
         console.error('Error fetching semesters:', error);
