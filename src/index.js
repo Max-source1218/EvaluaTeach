@@ -15,8 +15,6 @@ import supervisorEvaluationRoutes from "./routes/supervisor_evaluationRoutes.js"
 import facultyEvaluationRoutes from "./routes/facultyEvaluationRoutes.js";
 import facultyEvaluationResultsRoutes from "./routes/facultyEvaluationResults.js";
 import studentEvaluationRoutes from "./routes/studentEvaluationRoutes.js";
-import studentProgramChairEvaluationRoutes from "./routes/studentProgramChairEvaluationRoutes.js";
-import programChairEvaluationResultsRoutes from "./routes/programChairEvaluationResults.js";
 
 import { connectDB } from "./lib/db.js";
 
@@ -40,8 +38,6 @@ app.use("/api/supervisor-evaluation", supervisorEvaluationRoutes);
 app.use("/api/faculty-evaluation", facultyEvaluationRoutes);
 app.use("/api/faculty-evaluations", facultyEvaluationResultsRoutes);
 app.use("/api/student-evaluation", studentEvaluationRoutes);
-app.use("/api/student-programchair-evaluation", studentProgramChairEvaluationRoutes);
-app.use("/api/programchair-evaluations", programChairEvaluationResultsRoutes);
 
 app.listen(PORT, () => {
     console.log("Port is running on", PORT);
