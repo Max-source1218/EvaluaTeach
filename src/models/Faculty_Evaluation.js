@@ -23,7 +23,7 @@ const faculty_evaluationSchema = new mongoose.Schema({
     },
     userId: { 
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Program Chair is in User model
+        ref: 'User', // Program Chair/Supervisor is in User model
         required: true,
     },
     department: {
