@@ -21,6 +21,7 @@ router.post('/', protectRoute, async (request, response) => {
         
         const user = await User.findById(instructorId);
         if (user) {
+            // It's a Program Chair or Supervisor (User model)
             subjectData.user = instructorId;
         } else {
             const faculty = await Faculty.findById(instructorId);
@@ -80,11 +81,6 @@ router.delete("/:id", protectRoute, async (request, response) => {
     }
 });
 
-// routes/subjectRoutes.js
-
-// Filter subjects by schoolyear, semester, department, and type
-// routes/subjectRoutes.js
-
 // Filter subjects by schoolyear, semester, department, and type
 router.get('/filter', protectRoute, async (req, res) => {
     try {
@@ -97,18 +93,26 @@ router.get('/filter', protectRoute, async (req, res) => {
         let subjects;
         
         if (type === 'faculty') {
-            // ✅ Changed: populate 'username' instead of 'name'
+            // ✅ FIXED: Populate with 'username' for Faculty
             subjects = await Subject.find({ 
                 schoolyear, 
                 semester, 
-                department 
+                department,
+                faculty: { $exists: true, $ne: null }  // Only subjects with faculty field
             }).populate('faculty', 'username department profileImage');
-        } else {
+        } else if (type === 'programchair') {
+            // Fetch subjects for Program Chairs (User model)
             subjects = await Subject.find({ 
                 schoolyear, 
                 semester, 
-                department 
-            }).populate('user', 'name department');
+                department,
+                user: { $exists: true, $ne: null }  // Only subjects with user field
+            }).populate('user', 'username department profileImage');
+        } else {
+            // Default: fetch all subjects
+            subjects = await Subject.find({ schoolyear, semester, department })
+                .populate('faculty', 'username department profileImage')
+                .populate('user', 'username department profileImage');
         }
 
         // Group by instructor/faculty
@@ -117,15 +121,18 @@ router.get('/filter', protectRoute, async (req, res) => {
         subjects.forEach(subject => {
             let userId, userName, userDepartment, userProfileImage;
             
-            if (type === 'faculty') {
+            if (type === 'faculty' || (!subject.user && subject.faculty)) {
+                // It's a Faculty subject
                 userId = subject.faculty?._id?.toString();
-                // ✅ Changed: use 'username' instead of 'name'
-                userName = subject.faculty?.username || subject.faculty?.name || 'Unknown';
+                // ✅ FIXED: Use 'username' instead of 'name'
+                userName = subject.faculty?.username || 'Unknown';
                 userDepartment = subject.faculty?.department;
                 userProfileImage = subject.faculty?.profileImage;
             } else {
+                // It's a Program Chair (User) subject
                 userId = subject.user?._id?.toString();
-                userName = subject.user?.name || 'Unknown';
+                // ✅ FIXED: Use 'username' instead of 'name'
+                userName = subject.user?.username || 'Unknown';
                 userDepartment = subject.user?.department;
                 userProfileImage = subject.user?.profileImage;
             }
@@ -153,4 +160,5 @@ router.get('/filter', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 export default router;
