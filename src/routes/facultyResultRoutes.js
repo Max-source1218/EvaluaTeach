@@ -345,12 +345,12 @@ router.get('/tabulated/:facultyId/:schoolyear', combinedAuth, async (req, res) =
             const chairCount = semesterPCEvaluations.length;
             const chairRating = chairCount > 0 ? chairSum / chairCount : 0;
             const chairScore = (chairRating * 100) / 5;
-            const chairRating60 = chairRating * 0.6;
-            const chairScore60 = chairScore * 0.6;
+            const chairRating40 = chairRating * 0.4;
+            const chairScore40 = chairScore * 0.4;
 
             // Final Calculations
-            const totalScore = studentScore60 + chairScore60;
-            const totalRating = studentRating60 + chairRating60;
+            const totalScore = studentScore60 + chairScore40;
+            const totalRating = studentRating60 + chairRating40;
 
             return {
                 semester,
