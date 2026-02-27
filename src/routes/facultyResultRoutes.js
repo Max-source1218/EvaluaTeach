@@ -1,16 +1,17 @@
 import express from 'express';
 import Faculty_Evaluation from '../models/Faculty_Evaluation.js';
 import StudentEvaluation from '../models/Student_Evaluation.js';
-import protectRoute from '../middleware/auth.middleware.js';
+import combinedAuth from '../middleware/combinedAuth.middleware.js';
 
 const router = express.Router();
 
 // Get all school years that have evaluations for a faculty
-router.get('/schoolyears/:facultyId', protectRoute, async (req, res) => {
+router.get('/schoolyears/:facultyId', combinedAuth, async (req, res) => {
     try {
         const { facultyId } = req.params;
         console.log('=== FETCHING SCHOOL YEARS FOR FACULTY ===');
-        console.log('Faculty ID:', facultyId);
+        console.log('Requested faculty ID:', facultyId);
+        console.log('Requesting user:', req.user._id);
 
         // Get school years from Program Chair evaluations
         const programChairSchoolYears = await Faculty_Evaluation.distinct('schoolyear', { facultyId });
@@ -39,6 +40,7 @@ router.get('/schoolyears/:facultyId', protectRoute, async (req, res) => {
         // Sort descending
         schoolYearCounts.sort((a, b) => b.schoolyear.localeCompare(a.schoolyear));
 
+        console.log('School years:', schoolYearCounts);
         res.json(schoolYearCounts);
     } catch (error) {
         console.error('Error fetching school years:', error);
@@ -47,7 +49,7 @@ router.get('/schoolyears/:facultyId', protectRoute, async (req, res) => {
 });
 
 // Get departments that have evaluated a faculty (for a specific school year)
-router.get('/departments/:facultyId/:schoolyear', protectRoute, async (req, res) => {
+router.get('/departments/:facultyId/:schoolyear', combinedAuth, async (req, res) => {
     try {
         const { facultyId, schoolyear } = req.params;
         console.log('=== FETCHING DEPARTMENTS ===');
@@ -78,7 +80,7 @@ router.get('/departments/:facultyId/:schoolyear', protectRoute, async (req, res)
 });
 
 // Get semesters for a faculty in a specific school year and department
-router.get('/semesters/:facultyId/:schoolyear/:department', protectRoute, async (req, res) => {
+router.get('/semesters/:facultyId/:schoolyear/:department', combinedAuth, async (req, res) => {
     try {
         const { facultyId, schoolyear, department } = req.params;
         console.log('=== FETCHING SEMESTERS ===');
@@ -111,7 +113,7 @@ router.get('/semesters/:facultyId/:schoolyear/:department', protectRoute, async 
 });
 
 // Get subjects for a faculty in a specific school year, department, and semester
-router.get('/subjects/:facultyId/:schoolyear/:department/:semester', protectRoute, async (req, res) => {
+router.get('/subjects/:facultyId/:schoolyear/:department/:semester', combinedAuth, async (req, res) => {
     try {
         const { facultyId, schoolyear, department, semester } = req.params;
         console.log('=== FETCHING SUBJECTS ===');
@@ -149,7 +151,7 @@ router.get('/subjects/:facultyId/:schoolyear/:department/:semester', protectRout
 });
 
 // Get all evaluation results for a faculty in a specific school year, department, semester, and subject
-router.get('/results/:facultyId/:schoolyear/:department/:semester/:subject', protectRoute, async (req, res) => {
+router.get('/results/:facultyId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
     try {
         const { facultyId, schoolyear, department, semester, subject } = req.params;
         console.log('=== FETCHING EVALUATION RESULTS ===');
