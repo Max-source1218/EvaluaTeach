@@ -1,59 +1,44 @@
 import express from 'express';
 import Faculty_Evaluation from '../models/Faculty_Evaluation.js';
 import StudentEvaluation from '../models/Student_Evaluation.js';
-import protectRouteFaculty from '../middleware/faculty.middleware.js';
+import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
 // Get all school years that have evaluations for a faculty
-router.get('/schoolyears/:facultyId', protectRouteFaculty, async (req, res) => {
+router.get('/schoolyears/:facultyId', protectRoute, async (req, res) => {
     try {
         const { facultyId } = req.params;
         console.log('=== FETCHING SCHOOL YEARS FOR FACULTY ===');
         console.log('Faculty ID:', facultyId);
 
-        // Get school years from Program Chair evaluations (Faculty_Evaluation)
+        // Get school years from Program Chair evaluations
         const programChairSchoolYears = await Faculty_Evaluation.distinct('schoolyear', { facultyId });
         
-        // Get school years from Student evaluations (StudentEvaluation)
+        // Get school years from Student evaluations
         const studentSchoolYears = await StudentEvaluation.distinct('schoolyear', { 
             evaluatorId: facultyId,
             evaluatorType: 'faculty'
         });
 
-        console.log('Program Chair school years:', programChairSchoolYears);
-        console.log('Student school years:', studentSchoolYears);
-
-        // Combine and deduplicate school years
+        // Combine and deduplicate
         const allSchoolYears = [...new Set([...programChairSchoolYears, ...studentSchoolYears])];
         
-        // Get count of subjects for each school year
+        // Get count for each school year
         const schoolYearCounts = await Promise.all(allSchoolYears.map(async (schoolyear) => {
-            // Count subjects from program chair evaluations
-            const programChairCount = await Faculty_Evaluation.distinct('title', { 
-                facultyId, 
-                schoolyear 
-            });
-            
-            // Count subjects from student evaluations
+            const programChairCount = await Faculty_Evaluation.distinct('title', { facultyId, schoolyear });
             const studentCount = await StudentEvaluation.distinct('title', { 
                 evaluatorId: facultyId,
                 evaluatorType: 'faculty',
                 schoolyear 
             });
-
             const uniqueSubjects = [...new Set([...programChairCount, ...studentCount])];
-
-            return {
-                schoolyear,
-                count: uniqueSubjects.length
-            };
+            return { schoolyear, count: uniqueSubjects.length };
         }));
 
-        // Sort by school year (descending)
+        // Sort descending
         schoolYearCounts.sort((a, b) => b.schoolyear.localeCompare(a.schoolyear));
 
-        console.log('Final school years:', schoolYearCounts);
         res.json(schoolYearCounts);
     } catch (error) {
         console.error('Error fetching school years:', error);
@@ -61,34 +46,101 @@ router.get('/schoolyears/:facultyId', protectRouteFaculty, async (req, res) => {
     }
 });
 
-// Get all subjects for a faculty in a specific school year
-router.get('/subjects/:facultyId/:schoolyear', protectRouteFaculty, async (req, res) => {
+// Get departments that have evaluated a faculty (for a specific school year)
+router.get('/departments/:facultyId/:schoolyear', protectRoute, async (req, res) => {
     try {
         const { facultyId, schoolyear } = req.params;
-        console.log('=== FETCHING SUBJECTS FOR FACULTY ===');
+        console.log('=== FETCHING DEPARTMENTS ===');
+        console.log('Faculty ID:', facultyId, 'School Year:', schoolyear);
+
+        // Get departments from Program Chair evaluations
+        const programChairDepts = await Faculty_Evaluation.distinct('department', { 
+            facultyId, 
+            schoolyear 
+        });
+        
+        // Get departments from Student evaluations
+        const studentDepts = await StudentEvaluation.distinct('department', { 
+            evaluatorId: facultyId,
+            evaluatorType: 'faculty',
+            schoolyear 
+        });
+
+        // Combine and deduplicate
+        const allDepartments = [...new Set([...programChairDepts, ...studentDepts])];
+
+        console.log('Departments:', allDepartments);
+        res.json(allDepartments);
+    } catch (error) {
+        console.error('Error fetching departments:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get semesters for a faculty in a specific school year and department
+router.get('/semesters/:facultyId/:schoolyear/:department', protectRoute, async (req, res) => {
+    try {
+        const { facultyId, schoolyear, department } = req.params;
+        console.log('=== FETCHING SEMESTERS ===');
+        console.log('Faculty ID:', facultyId, 'School Year:', schoolyear, 'Department:', department);
+
+        // Get semesters from Program Chair evaluations
+        const programChairSemesters = await Faculty_Evaluation.distinct('semester', { 
+            facultyId, 
+            schoolyear,
+            department
+        });
+        
+        // Get semesters from Student evaluations
+        const studentSemesters = await StudentEvaluation.distinct('semester', { 
+            evaluatorId: facultyId,
+            evaluatorType: 'faculty',
+            schoolyear,
+            department
+        });
+
+        // Combine and deduplicate
+        const allSemesters = [...new Set([...programChairSemesters, ...studentSemesters])];
+
+        console.log('Semesters:', allSemesters);
+        res.json(allSemesters);
+    } catch (error) {
+        console.error('Error fetching semesters:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get subjects for a faculty in a specific school year, department, and semester
+router.get('/subjects/:facultyId/:schoolyear/:department/:semester', protectRoute, async (req, res) => {
+    try {
+        const { facultyId, schoolyear, department, semester } = req.params;
+        console.log('=== FETCHING SUBJECTS ===');
         console.log('Faculty ID:', facultyId);
         console.log('School Year:', schoolyear);
+        console.log('Department:', department);
+        console.log('Semester:', semester);
 
         // Get subjects from Program Chair evaluations
         const programChairSubjects = await Faculty_Evaluation.distinct('title', { 
             facultyId, 
-            schoolyear 
+            schoolyear,
+            department,
+            semester
         });
         
         // Get subjects from Student evaluations
         const studentSubjects = await StudentEvaluation.distinct('title', { 
             evaluatorId: facultyId,
             evaluatorType: 'faculty',
-            schoolyear 
+            schoolyear,
+            department,
+            semester
         });
-
-        console.log('Program Chair subjects:', programChairSubjects);
-        console.log('Student subjects:', studentSubjects);
 
         // Combine and deduplicate
         const allSubjects = [...new Set([...programChairSubjects, ...studentSubjects])];
 
-        console.log('Final subjects:', allSubjects);
+        console.log('Subjects:', allSubjects);
         res.json(allSubjects);
     } catch (error) {
         console.error('Error fetching subjects:', error);
@@ -96,19 +148,23 @@ router.get('/subjects/:facultyId/:schoolyear', protectRouteFaculty, async (req, 
     }
 });
 
-// Get all evaluations for a faculty in a specific school year and subject
-router.get('/results/:facultyId/:schoolyear/:subject', protectRouteFaculty, async (req, res) => {
+// Get all evaluation results for a faculty in a specific school year, department, semester, and subject
+router.get('/results/:facultyId/:schoolyear/:department/:semester/:subject', protectRoute, async (req, res) => {
     try {
-        const { facultyId, schoolyear, subject } = req.params;
-        console.log('=== FETCHING EVALUATIONS FOR FACULTY ===');
+        const { facultyId, schoolyear, department, semester, subject } = req.params;
+        console.log('=== FETCHING EVALUATION RESULTS ===');
         console.log('Faculty ID:', facultyId);
         console.log('School Year:', schoolyear);
+        console.log('Department:', department);
+        console.log('Semester:', semester);
         console.log('Subject:', subject);
 
         // Get evaluations from Program Chairs
         const programChairEvaluations = await Faculty_Evaluation.find({ 
             facultyId, 
             schoolyear,
+            department,
+            semester,
             title: subject
         }).populate('userId', 'username');
 
@@ -117,29 +173,29 @@ router.get('/results/:facultyId/:schoolyear/:subject', protectRouteFaculty, asyn
             evaluatorId: facultyId,
             evaluatorType: 'faculty',
             schoolyear,
+            department,
+            semester,
             title: subject
         }).populate('userId', 'username');
 
         console.log('Program Chair evaluations:', programChairEvaluations.length);
         console.log('Student evaluations:', studentEvaluations.length);
 
-        // Combine and format evaluations
+        // Combine and format results
         const allEvaluations = [
             ...programChairEvaluations.map(e => ({
                 _id: e._id,
-                evaluatorName: e.userId?.username || 'Unknown Program Chair',
-                semester: e.semester,
+                name: e.name || e.userId?.username || 'Unknown',
                 department: e.department,
                 points: e.points,
-                type: 'programchair'
+                evaluatorType: 'Program Chair'
             })),
             ...studentEvaluations.map(e => ({
                 _id: e._id,
-                evaluatorName: e.name || 'Anonymous Student',
-                semester: e.semester,
+                name: e.name || 'Anonymous Student',
                 department: e.department,
                 points: e.points,
-                type: 'student'
+                evaluatorType: 'Student'
             }))
         ];
 

@@ -41,5 +41,7 @@ const supervisor_evaluationSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Supervisor_Evaluation = mongoose.model("Supervisor_Evaluation", supervisor_evaluationSchema);
+// ✅ Fix: Check if model already exists before creating
+const Supervisor_Evaluation = mongoose.models.Supervisor_Evaluation || mongoose.model("Supervisor_Evaluation", supervisor_evaluationSchema);
+
 export default Supervisor_Evaluation;
