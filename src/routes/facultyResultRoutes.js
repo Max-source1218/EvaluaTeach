@@ -208,5 +208,93 @@ router.get('/results/:facultyId/:schoolyear/:department/:semester/:subject', com
         res.status(500).json({ message: error.message });
     }
 });
+// ========== FACULTY DASHBOARD ROUTES (Simpler) ==========
+
+// Get subjects for faculty dashboard (schoolyear only)
+router.get('/dashboard/subjects/:facultyId/:schoolyear', combinedAuth, async (req, res) => {
+    try {
+        const { facultyId, schoolyear } = req.params;
+        console.log('=== FETCHING DASHBOARD SUBJECTS ===');
+        console.log('Faculty ID:', facultyId);
+        console.log('School Year:', schoolyear);
+
+        // Get subjects from Program Chair evaluations
+        const programChairSubjects = await Faculty_Evaluation.distinct('title', { 
+            facultyId, 
+            schoolyear 
+        });
+        
+        // Get subjects from Student evaluations
+        const studentSubjects = await StudentEvaluation.distinct('title', { 
+            evaluatorId: facultyId,
+            evaluatorType: 'faculty',
+            schoolyear 
+        });
+
+        // Combine and deduplicate
+        const allSubjects = [...new Set([...programChairSubjects, ...studentSubjects])];
+
+        console.log('Subjects:', allSubjects);
+        res.json(allSubjects);
+    } catch (error) {
+        console.error('Error fetching subjects:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get all evaluation results for faculty dashboard (schoolyear + subject only)
+router.get('/dashboard/results/:facultyId/:schoolyear/:subject', combinedAuth, async (req, res) => {
+    try {
+        const { facultyId, schoolyear, subject } = req.params;
+        console.log('=== FETCHING DASHBOARD EVALUATIONS ===');
+        console.log('Faculty ID:', facultyId);
+        console.log('School Year:', schoolyear);
+        console.log('Subject:', subject);
+
+        // Get evaluations from Program Chairs
+        const programChairEvaluations = await Faculty_Evaluation.find({ 
+            facultyId, 
+            schoolyear,
+            title: subject
+        }).populate('userId', 'username');
+
+        // Get evaluations from Students
+        const studentEvaluations = await StudentEvaluation.find({ 
+            evaluatorId: facultyId,
+            evaluatorType: 'faculty',
+            schoolyear,
+            title: subject
+        }).populate('userId', 'username');
+
+        console.log('Program Chair evaluations:', programChairEvaluations.length);
+        console.log('Student evaluations:', studentEvaluations.length);
+
+        // Combine and format results
+        const allEvaluations = [
+            ...programChairEvaluations.map(e => ({
+                _id: e._id,
+                name: e.name || e.userId?.username || 'Unknown',
+                department: e.department,
+                semester: e.semester,
+                points: e.points,
+                evaluatorType: 'Program Chair'
+            })),
+            ...studentEvaluations.map(e => ({
+                _id: e._id,
+                name: e.name || 'Anonymous Student',
+                department: e.department,
+                semester: e.semester,
+                points: e.points,
+                evaluatorType: 'Student'
+            }))
+        ];
+
+        console.log('Total evaluations:', allEvaluations.length);
+        res.json(allEvaluations);
+    } catch (error) {
+        console.error('Error fetching evaluations:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
 
 export default router;
