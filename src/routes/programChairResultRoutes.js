@@ -1,6 +1,6 @@
 // routes/programChairResultRoutes.js
 import express from 'express';
-import Supervisor_Evaluation from '../models/Supervisor_Evaluation.js';
+import Supervisor_Evaluation from '../models/Supervisor_evaluation.js';
 import StudentEvaluation from '../models/Student_Evaluation.js';
 import protectRoute from '../middleware/auth.middleware.js';
 
