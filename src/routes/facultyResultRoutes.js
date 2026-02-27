@@ -296,5 +296,90 @@ router.get('/dashboard/results/:facultyId/:schoolyear/:subject', combinedAuth, a
         res.status(500).json({ message: error.message });
     }
 });
+// Get tabulated results for faculty (grouped by semester)
+router.get('/tabulated/:facultyId/:schoolyear', combinedAuth, async (req, res) => {
+    try {
+        const { facultyId, schoolyear } = req.params;
+        console.log('=== FETCHING TABULATED RESULTS ===');
+        console.log('Faculty ID:', facultyId);
+        console.log('School Year:', schoolyear);
 
+        // Get ALL evaluations from Program Chairs for this faculty in this school year
+        const programChairEvaluations = await Faculty_Evaluation.find({ 
+            facultyId, 
+            schoolyear
+        });
+
+        // Get ALL evaluations from Students for this faculty in this school year
+        const studentEvaluations = await StudentEvaluation.find({ 
+            evaluatorId: facultyId,
+            evaluatorType: 'faculty',
+            schoolyear
+        });
+
+        console.log('Program Chair evaluations:', programChairEvaluations.length);
+        console.log('Student evaluations:', studentEvaluations.length);
+
+        // Get unique semesters
+        const semesters = [...new Set([
+            ...programChairEvaluations.map(e => e.semester),
+            ...studentEvaluations.map(e => e.semester)
+        ])];
+
+        // Calculate for each semester
+        const results = semesters.map(semester => {
+            // Filter by semester
+            const semesterPCEvaluations = programChairEvaluations.filter(e => e.semester === semester);
+            const semesterStudentEvaluations = studentEvaluations.filter(e => e.semester === semester);
+
+            // Student Calculations
+            const studentSum = semesterStudentEvaluations.reduce((sum, e) => sum + e.points, 0);
+            const studentCount = semesterStudentEvaluations.length;
+            const studentRating = studentCount > 0 ? studentSum / studentCount : 0;
+            const studentScore = (studentRating * 100) / 5;
+            const studentRating60 = studentRating * 0.6;
+            const studentScore60 = studentScore * 0.6;
+
+            // Program Chair Calculations
+            const chairSum = semesterPCEvaluations.reduce((sum, e) => sum + e.points, 0);
+            const chairCount = semesterPCEvaluations.length;
+            const chairRating = chairCount > 0 ? chairSum / chairCount : 0;
+            const chairScore = (chairRating * 100) / 5;
+            const chairRating60 = chairRating * 0.6;
+            const chairScore60 = chairScore * 0.6;
+
+            // Final Calculations
+            const totalScore = studentScore60 + chairScore60;
+            const totalRating = studentRating60 + chairRating60;
+
+            return {
+                semester,
+                student: {
+                    rating: studentRating,
+                    score: studentScore,
+                    rating60: studentRating60,
+                    score60: studentScore60,
+                    count: studentCount
+                },
+                chair: {
+                    rating: chairRating,
+                    score: chairScore,
+                    rating60: chairRating60,
+                    score60: chairScore60,
+                    count: chairCount
+                },
+                total: {
+                    score: totalScore,
+                    rating: totalRating
+                }
+            };
+        });
+
+        console.log('Tabulated results:', results);
+        res.json(results);
+    } catch (error) {
+        console.error('Error fetching tabulated results:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
 export default router;
