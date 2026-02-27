@@ -364,8 +364,8 @@ router.get('/tabulated/:facultyId/:schoolyear', combinedAuth, async (req, res) =
                 chair: {
                     rating: chairRating,
                     score: chairScore,
-                    rating60: chairRating60,
-                    score60: chairScore60,
+                    rating40: chairRating40,
+                    score40: chairScore40,
                     count: chairCount
                 },
                 total: {
