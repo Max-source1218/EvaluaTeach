@@ -86,75 +86,64 @@ router.get('/debug-faculty', combinedAuth, async (req, res) => {
 });
 
 // Get all subjects - IMPROVED
+// Get all subjects
 router.get('/all-subjects', combinedAuth, async (req, res) => {
     try {
         console.log('=== FETCHING ALL SUBJECTS ===');
         
-        // Get all faculty
-        const allFaculty = await Faculty.find().lean();
-        console.log('Total faculty found:', allFaculty.length);
+        // Import Subject model
+        const Subject = (await import('../models/Subject.js')).default;
+        const Faculty = (await import('../models/Faculty.js')).default;
         
-        if (allFaculty.length === 0) {
+        // Get all subjects
+        const allSubjects = await Subject.find().lean();
+        console.log('Total subjects in DB:', allSubjects.length);
+        
+        if (allSubjects.length === 0) {
             return res.json([]);
         }
         
-        // Check first faculty to see structure
-        const sample = allFaculty[0];
-        console.log('Sample faculty fields:', Object.keys(sample));
-        console.log('Sample faculty data:', JSON.stringify(sample));
+        // Get unique subject titles
+        const uniqueTitles = [...new Set(allSubjects.map(s => s.title).filter(Boolean))];
+        console.log('Unique titles:', uniqueTitles);
         
-        // Try to find subjects - check if it's an array field
-        let allSubjects = [];
-        
-        // Common field names for subjects
-        const possibleFields = ['subjects', 'subject', 'subjectList', 'teachingSubjects', 'assignedSubjects'];
-        
-        allFaculty.forEach(faculty => {
-            possibleFields.forEach(fieldName => {
-                const fieldValue = faculty[fieldName];
-                if (fieldValue) {
-                    if (Array.isArray(fieldValue)) {
-                        allSubjects = [...allSubjects, ...fieldValue];
-                    } else if (typeof fieldValue === 'string' && fieldValue.trim()) {
-                        allSubjects.push(fieldValue);
+        // For each subject, find creators
+        const subjectsWithCreators = await Promise.all(uniqueTitles.map(async (title) => {
+            // Find all Subject records with this title
+            const subjectRecords = await Subject.find({ title }).lean();
+            
+            // Collect unique creators
+            const creatorsMap = new Map();
+            
+            for (const record of subjectRecords) {
+                // Check if faculty reference exists
+                if (record.faculty) {
+                    const faculty = await Faculty.findById(record.faculty).select('username').lean();
+                    if (faculty?.username) {
+                        creatorsMap.set(faculty.username, { name: faculty.username, role: 'Faculty' });
                     }
                 }
-            });
-        });
-        
-        // Remove duplicates
-        const uniqueSubjects = [...new Set(allSubjects)].filter(Boolean);
-        console.log('Unique subjects:', uniqueSubjects);
-        
-        // Build response
-        const subjectsWithCreators = uniqueSubjects.map(subject => {
-            const creators = [];
-            
-            allFaculty.forEach(faculty => {
-                possibleFields.forEach(fieldName => {
-                    const fieldValue = faculty[fieldName];
-                    if (fieldValue) {
-                        const subjects = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
-                        if (subjects.includes(subject)) {
-                            creators.push({
-                                name: faculty.username,
-                                role: 'Faculty'
-                            });
-                        }
+                
+                // Check if user reference exists (Program Chair)
+                if (record.user) {
+                    const User = (await import('../models/User.js')).default;
+                    const user = await User.findById(record.user).select('username').lean();
+                    if (user?.username) {
+                        creatorsMap.set(user.username, { name: user.username, role: 'Program Chair' });
                     }
-                });
-            });
+                }
+            }
             
             return {
-                subject,
-                creators: [...new Map(creators.map(c => [c.name, c])).values()]
+                subject: title,
+                creators: Array.from(creatorsMap.values())
             };
-        });
+        }));
         
         // Sort alphabetically
         subjectsWithCreators.sort((a, b) => a.subject.localeCompare(b.subject));
         
-        console.log('Final result:', subjectsWithCreators.length, 'subjects');
+        console.log('Final subjects:', subjectsWithCreators.length);
         res.json(subjectsWithCreators);
     } catch (error) {
         console.error('Error fetching subjects:', error);
