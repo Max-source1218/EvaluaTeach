@@ -4,7 +4,6 @@ import Faculty from "../models/Faculty.js";
 import SupervisorForm from "../models/SupervisorForm.js";
 import protectRoute from "../middleware/auth.middleware.js";
 import combinedAuth from '../middleware/combinedAuth.middleware.js';
-
 const router = express.Router();
 
 // Get all Program Chairs (for Supervisors)
@@ -66,10 +65,14 @@ router.get("/faculty", protectRoute, async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
-// Get all subjects with creator info
+
 router.get('/all-subjects', combinedAuth, async (req, res) => {
     try {
         console.log('=== FETCHING ALL SUBJECTS ===');
+        
+        // Import models inside the function to avoid issues
+        const Faculty = (await import('../models/Faculty.js')).default;
+        const ProgramChair = (await import('../models/ProgramChair.js')).default;
         
         // Get subjects from Faculty collection
         const facultySubjects = await Faculty.distinct('subjects', { });
@@ -103,5 +106,4 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
-
 export default router;
