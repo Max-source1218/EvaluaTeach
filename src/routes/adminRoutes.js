@@ -66,35 +66,30 @@ router.get("/faculty", protectRoute, async (req, res) => {
     }
 });
 
+// Get all subjects with creators
 router.get('/all-subjects', combinedAuth, async (req, res) => {
     try {
         console.log('=== FETCHING ALL SUBJECTS ===');
         
-        // Import models inside the function to avoid issues
-        const Faculty = (await import('../models/Faculty.js')).default;
-        const ProgramChair = (await import('../models/ProgramChair.js')).default;
-        
         // Get subjects from Faculty collection
         const facultySubjects = await Faculty.distinct('subjects', { });
         
-        // Get subjects from Program Chair collection  
-        const pcSubjects = await ProgramChair.distinct('subjects', { });
+        // For now, get all Program Chairs to show as potential creators
+        // (Subjects for Program Chairs may be stored differently in your system)
+        const programChairs = await User.find({ role: 'Program Chair' }).select('username');
 
-        // Get unique subjects
-        const allSubjects = [...new Set([...facultySubjects, ...pcSubjects])].filter(Boolean);
+        // Get unique subjects from Faculty
+        const allSubjects = [...new Set(facultySubjects)].filter(Boolean);
         
-        // For each subject, get the creators
+        // For each subject, get the faculty creators
         const subjectsWithCreators = await Promise.all(allSubjects.map(async (subject) => {
             // Find faculty who have this subject
             const facultyWithSubject = await Faculty.find({ subjects: subject }).select('username');
-            // Find program chairs who have this subject
-            const pcWithSubject = await ProgramChair.find({ subjects: subject }).select('username');
             
             return {
                 subject,
                 creators: [
                     ...facultyWithSubject.map(f => ({ name: f.username, role: 'Faculty' })),
-                    ...pcWithSubject.map(pc => ({ name: pc.username, role: 'Program Chair' }))
                 ]
             };
         }));
@@ -106,4 +101,5 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 export default router;
