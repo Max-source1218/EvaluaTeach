@@ -4,6 +4,7 @@ import Faculty from "../models/Faculty.js";
 import SupervisorForm from "../models/SupervisorForm.js";
 import protectRoute from "../middleware/auth.middleware.js";
 import combinedAuth from '../middleware/combinedAuth.middleware.js';
+
 const router = express.Router();
 
 // Get all Program Chairs (for Supervisors)
@@ -13,7 +14,6 @@ router.get("/program-chairs", protectRoute, async (req, res) => {
         
         const programChairs = await User.find({ role: 'Program Chair' }).select('-password');
         
-        // Get department from SupervisorForm for each Program Chair
         const programChairsWithDepartment = await Promise.all(
             programChairs.map(async (pc) => {
                 const supervisorForm = await SupervisorForm.findOne({ user: pc._id })
@@ -64,34 +64,29 @@ router.get("/faculty", protectRoute, async (req, res) => {
     }
 });
 
-// Debug route - check Faculty model structure
+// DEBUG: Check Faculty model structure
 router.get('/debug-faculty', combinedAuth, async (req, res) => {
     try {
-        // Get one faculty to see its structure
-        const sampleFaculty = await Faculty.findOne();
+        const sampleFaculty = await Faculty.find().limit(3).lean();
         
-        if (!sampleFaculty) {
-            return res.json({ message: "No faculty found" });
+        if (!sampleFaculty || sampleFaculty.length === 0) {
+            return res.json({ message: "No faculty found in database" });
         }
         
-        // Return all field names
-        const fields = Object.keys(sampleFaculty.toObject());
+        const result = sampleFaculty.map(f => ({
+            _id: f._id,
+            username: f.username,
+            fields: Object.keys(f),
+            subjects: f.subjects,
+            subject: f.subject,
+            subjectsAssigned: f.subjectsAssigned,
+            assignedSubjects: f.assignedSubjects,
+            teachingSubjects: f.teachingSubjects,
+            allData: f
+        }));
         
-        // Try different possible subject fields
-        const possibleSubjectFields = ['subjects', 'subject', 'subjectsAssigned', 'assignedSubjects', 'teachingSubjects'];
-        const foundSubjects = {};
-        
-        for (const field of possibleSubjectFields) {
-            if (sampleFaculty[field]) {
-                foundSubjects[field] = sampleFaculty[field];
-            }
-        }
-        
-        res.json({
-            fields,
-            sampleData: sampleFaculty.toObject(),
-            foundSubjects
-        });
+        console.log('Debug faculty result:', JSON.stringify(result, null, 2));
+        res.json(result);
     } catch (error) {
         console.error('Debug error:', error);
         res.status(500).json({ message: error.message });
@@ -103,50 +98,72 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
     try {
         console.log('=== FETCHING ALL SUBJECTS ===');
         
-        // Get sample faculty to check structure
-        const sampleFaculty = await Faculty.findOne();
-        console.log('Sample faculty fields:', Object.keys(sampleFaculty?.toObject() || {}));
+        const allFaculty = await Faculty.find().lean();
+        console.log('Total faculty:', allFaculty.length);
         
-        // Try different possible subject fields
-        let facultySubjects = [];
-        const possibleFields = ['subjects', 'subject', 'subjectsAssigned', 'assignedSubjects', 'teachingSubjects'];
+        let allSubjects = [];
         
-        for (const field of possibleFields) {
-            if (sampleFaculty && sampleFaculty[field]) {
-                facultySubjects = await Faculty.distinct(field, {});
-                console.log(`Found subjects in field: ${field}`, facultySubjects);
-                break;
-            }
-        }
-        
-        // Get all Program Chairs
-        const programChairs = await User.find({ role: 'Program Chair' }).select('username');
-
-        // Get unique subjects
-        const allSubjects = [...new Set(facultySubjects)].filter(Boolean);
-        console.log('Total unique subjects:', allSubjects.length);
-        
-        // For each subject, get the creators
-        const subjectsWithCreators = await Promise.all(allSubjects.map(async (subject) => {
-            // Find faculty who have this subject
-            let facultyWithSubject = [];
+        allFaculty.forEach(faculty => {
+            const subjectFields = [
+                faculty.subjects,
+                faculty.subject,
+                faculty.subjectsAssigned,
+                faculty.assignedSubjects,
+                faculty.teachingSubjects
+            ];
             
-            for (const field of possibleFields) {
-                if (sampleFaculty && sampleFaculty[field]) {
-                    facultyWithSubject = await Faculty.find({ [field]: subject }).select('username');
-                    if (facultyWithSubject.length > 0) break;
+            subjectFields.forEach(field => {
+                if (field) {
+                    if (Array.isArray(field)) {
+                        allSubjects = [...allSubjects, ...field];
+                    } else if (typeof field === 'string') {
+                        allSubjects.push(field);
+                    }
                 }
-            }
+            });
+        });
+        
+        const uniqueSubjects = [...new Set(allSubjects)].filter(Boolean);
+        console.log('Unique subjects found:', uniqueSubjects.length);
+        console.log('Subjects:', uniqueSubjects);
+        
+        const subjectMap = new Map();
+        
+        allFaculty.forEach(faculty => {
+            const subjectFields = [
+                faculty.subjects,
+                faculty.subject,
+                faculty.subjectsAssigned,
+                faculty.assignedSubjects,
+                faculty.teachingSubjects
+            ];
             
-            return {
-                subject,
-                creators: [
-                    ...facultyWithSubject.map(f => ({ name: f.username, role: 'Faculty' })),
-                ]
-            };
+            subjectFields.forEach(field => {
+                if (field) {
+                    const subjects = Array.isArray(field) ? field : [field];
+                    subjects.forEach(subj => {
+                        if (subj && !subjectMap.has(subj)) {
+                            subjectMap.set(subj, []);
+                        }
+                        if (subj) {
+                            subjectMap.get(subj).push({
+                                name: faculty.username,
+                                role: 'Faculty'
+                            });
+                        }
+                    });
+                }
+            });
+        });
+        
+        const subjectsWithCreators = Array.from(subjectMap.entries()).map(([subject, creators]) => ({
+            subject,
+            creators: [...new Map(creators.map(c => [c.name, c])).values()]
         }));
-
-        console.log('Subjects with creators:', subjectsWithCreators.length);
+        
+        subjectsWithCreators.sort((a, b) => a.subject.localeCompare(b.subject));
+        
+        console.log('Final subjects with creators:', subjectsWithCreators.length);
         res.json(subjectsWithCreators);
     } catch (error) {
         console.error('Error fetching subjects:', error);
