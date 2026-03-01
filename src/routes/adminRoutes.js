@@ -16,7 +16,6 @@ router.get("/program-chairs", protectRoute, async (req, res) => {
         // Get department from SupervisorForm for each Program Chair
         const programChairsWithDepartment = await Promise.all(
             programChairs.map(async (pc) => {
-                // Find the most recent SupervisorForm for this user
                 const supervisorForm = await SupervisorForm.findOne({ user: pc._id })
                     .sort({ createdAt: -1 });
                 
@@ -26,7 +25,7 @@ router.get("/program-chairs", protectRoute, async (req, res) => {
                     email: pc.email,
                     role: pc.role,
                     profileImage: pc.profileImage,
-                    department: supervisorForm?.department || 'N/A',  // Get department from SupervisorForm
+                    department: supervisorForm?.department || 'N/A',
                     createdAt: pc.createdAt,
                 };
             })
@@ -47,7 +46,6 @@ router.get("/faculty", protectRoute, async (req, res) => {
         
         const faculty = await Faculty.find().select('-password');
         
-        // Faculty already has department in their model
         const facultyWithDepartment = faculty.map(f => ({
             _id: f._id,
             username: f.username,
@@ -66,25 +64,79 @@ router.get("/faculty", protectRoute, async (req, res) => {
     }
 });
 
+// Debug route - check Faculty model structure
+router.get('/debug-faculty', combinedAuth, async (req, res) => {
+    try {
+        // Get one faculty to see its structure
+        const sampleFaculty = await Faculty.findOne();
+        
+        if (!sampleFaculty) {
+            return res.json({ message: "No faculty found" });
+        }
+        
+        // Return all field names
+        const fields = Object.keys(sampleFaculty.toObject());
+        
+        // Try different possible subject fields
+        const possibleSubjectFields = ['subjects', 'subject', 'subjectsAssigned', 'assignedSubjects', 'teachingSubjects'];
+        const foundSubjects = {};
+        
+        for (const field of possibleSubjectFields) {
+            if (sampleFaculty[field]) {
+                foundSubjects[field] = sampleFaculty[field];
+            }
+        }
+        
+        res.json({
+            fields,
+            sampleData: sampleFaculty.toObject(),
+            foundSubjects
+        });
+    } catch (error) {
+        console.error('Debug error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Get all subjects with creators
 router.get('/all-subjects', combinedAuth, async (req, res) => {
     try {
         console.log('=== FETCHING ALL SUBJECTS ===');
         
-        // Get subjects from Faculty collection
-        const facultySubjects = await Faculty.distinct('subjects', { });
+        // Get sample faculty to check structure
+        const sampleFaculty = await Faculty.findOne();
+        console.log('Sample faculty fields:', Object.keys(sampleFaculty?.toObject() || {}));
         
-        // For now, get all Program Chairs to show as potential creators
-        // (Subjects for Program Chairs may be stored differently in your system)
+        // Try different possible subject fields
+        let facultySubjects = [];
+        const possibleFields = ['subjects', 'subject', 'subjectsAssigned', 'assignedSubjects', 'teachingSubjects'];
+        
+        for (const field of possibleFields) {
+            if (sampleFaculty && sampleFaculty[field]) {
+                facultySubjects = await Faculty.distinct(field, {});
+                console.log(`Found subjects in field: ${field}`, facultySubjects);
+                break;
+            }
+        }
+        
+        // Get all Program Chairs
         const programChairs = await User.find({ role: 'Program Chair' }).select('username');
 
-        // Get unique subjects from Faculty
+        // Get unique subjects
         const allSubjects = [...new Set(facultySubjects)].filter(Boolean);
+        console.log('Total unique subjects:', allSubjects.length);
         
-        // For each subject, get the faculty creators
+        // For each subject, get the creators
         const subjectsWithCreators = await Promise.all(allSubjects.map(async (subject) => {
             // Find faculty who have this subject
-            const facultyWithSubject = await Faculty.find({ subjects: subject }).select('username');
+            let facultyWithSubject = [];
+            
+            for (const field of possibleFields) {
+                if (sampleFaculty && sampleFaculty[field]) {
+                    facultyWithSubject = await Faculty.find({ [field]: subject }).select('username');
+                    if (facultyWithSubject.length > 0) break;
+                }
+            }
             
             return {
                 subject,
@@ -94,7 +146,7 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
             };
         }));
 
-        console.log('Subjects:', subjectsWithCreators.length);
+        console.log('Subjects with creators:', subjectsWithCreators.length);
         res.json(subjectsWithCreators);
     } catch (error) {
         console.error('Error fetching subjects:', error);
