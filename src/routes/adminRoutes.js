@@ -598,33 +598,117 @@ router.get('/debug/user/:userId', combinedAuth, async (req, res) => {
 });
 
 // Debug: Check all subjects
-router.get('/debug/all-subjects', combinedAuth, async (req, res) => {
+// DEBUG: Check all subjects
+router.get('/debug-all-subjects', combinedAuth, async (req, res) => {
   try {
-    const allSubjects = await Subject.find().lean();
+    const Subject = (await import('../models/Subject.js')).default;
+    const Faculty = (await import('../models/Faculty.js')).default;
+    const User = (await import('../models/User.js')).default;
+    
+    const allSubjects = await Subject.find()
+      .populate('faculty', 'username department')
+      .populate('user', 'username role');
+    
+    console.log('=== DEBUG ALL SUBJECTS ===');
+    console.log('Total subjects:', allSubjects.length);
     
     res.json({
-      totalSubjects: allSubjects.length,
+      total: allSubjects.length,
       subjects: allSubjects.map(s => ({
         _id: s._id,
         title: s.title,
-        schoolyear: s.schoolyear,
         semester: s.semester,
+        schoolyear: s.schoolyear,
         department: s.department,
-        faculty: s.faculty,
-        user: s.user
+        hasFaculty: !!s.faculty,
+        hasUser: !!s.user,
+        facultyName: s.faculty?.username,
+        userName: s.user?.username,
       }))
     });
   } catch (error) {
     console.error('Debug error:', error);
     res.status(500).json({ 
       message: 'Debug error',
-      error: error.message
+      error: error.message 
     });
   }
 });
 
-// ============================================
-// EXPORT ROUTER
-// ============================================
-
+// Get all subjects with creators
+router.get('/all-subjects', combinedAuth, async (req, res) => {
+  try {
+    console.log('=== FETCHING ALL SUBJECTS ===');
+    
+    // Import models directly (not dynamic)
+    const Subject = (await import('../models/Subject.js')).default;
+    const Faculty = (await import('../models/Faculty.js')).default;
+    const User = (await import('../models/User.js')).default;
+    
+    // Get all subjects
+    const allSubjects = await Subject.find().lean();
+    console.log('Total subjects in DB:', allSubjects.length);
+    
+    if (allSubjects.length === 0) {
+      console.log('No subjects found');
+      return res.json([]);
+    }
+    
+    // Get unique subject titles
+    const uniqueTitles = [...new Set(allSubjects.map(s => s.title).filter(Boolean))].sort();
+    console.log('Unique titles:', uniqueTitles);
+    
+    // For each subject, find creators
+    const subjectsWithCreators = await Promise.all(uniqueTitles.map(async (title) => {
+      // Find all Subject records with this title
+      const subjectRecords = await Subject.find({ title }).lean();
+      
+      // Collect unique creators
+      const creatorsMap = new Map();
+      
+      for (const record of subjectRecords) {
+        // Check if faculty reference exists
+        if (record.faculty) {
+          const faculty = await Faculty.findById(record.faculty).select('username department').lean();
+          if (faculty?.username) {
+            creatorsMap.set(faculty.username, { 
+              name: faculty.username, 
+              role: 'Faculty',
+              department: faculty.department
+            });
+          }
+        }
+        
+        // Check if user reference exists (Program Chair)
+        if (record.user) {
+          const user = await User.findById(record.user).select('username role').lean();
+          if (user?.username) {
+            creatorsMap.set(user.username, { 
+              name: user.username, 
+              role: 'Program Chair',
+              department: user.department || 'N/A'
+            });
+          }
+        }
+      }
+      
+      return {
+        subject: title,
+        creators: Array.from(creatorsMap.values())
+      };
+    }));
+    
+    // Sort alphabetically
+    subjectsWithCreators.sort((a, b) => a.subject.localeCompare(b.subject));
+    
+    console.log('Final subjects:', subjectsWithCreators.length);
+    res.json(subjectsWithCreators);
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch subjects',
+      error: error.message 
+    });
+  }
+});
 export default router;
