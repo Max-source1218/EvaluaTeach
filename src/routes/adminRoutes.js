@@ -69,7 +69,7 @@ router.get("/faculty", protectRoute, async (req, res) => {
 // FACULTY EVALUATION RESULTS ROUTES (Program Chair)
 // ============================================
 
-// Get school years for Faculty evaluation
+// Get school years for Faculty evaluation (Query Subject model using 'faculty' field)
 router.get('/faculty-results/school-years/:facultyId', combinedAuth, async (req, res) => {
   try {
     const { facultyId } = req.params;
@@ -101,7 +101,7 @@ router.get('/faculty-results/school-years/:facultyId', combinedAuth, async (req,
     
     console.log('Faculty found:', faculty.username);
     
-    // Get all subjects for this faculty
+    // ✅ Query Subject model using 'faculty' field (NOT evaluation models)
     const subjects = await Subject.find({ faculty: facultyId }).select('schoolyear').lean();
     
     console.log('Total subjects found:', subjects.length);
@@ -135,7 +135,7 @@ router.get('/faculty-results/school-years/:facultyId', combinedAuth, async (req,
   }
 });
 
-// Get departments for Faculty evaluation
+// Get departments for Faculty evaluation (Query Subject model using 'faculty' field)
 router.get('/faculty-results/departments/:facultyId/:schoolyear', combinedAuth, async (req, res) => {
   try {
     const { facultyId, schoolyear } = req.params;
@@ -153,7 +153,7 @@ router.get('/faculty-results/departments/:facultyId/:schoolyear', combinedAuth, 
       });
     }
     
-    // Get all subjects for this faculty and school year
+    // ✅ Query Subject model using 'faculty' field
     const subjects = await Subject.find({ 
       faculty: facultyId, 
       schoolyear 
@@ -175,7 +175,7 @@ router.get('/faculty-results/departments/:facultyId/:schoolyear', combinedAuth, 
   }
 });
 
-// Get semesters for Faculty evaluation
+// Get semesters for Faculty evaluation (Query Subject model using 'faculty' field)
 router.get('/faculty-results/semesters/:facultyId/:schoolyear/:department', combinedAuth, async (req, res) => {
   try {
     const { facultyId, schoolyear, department } = req.params;
@@ -185,7 +185,7 @@ router.get('/faculty-results/semesters/:facultyId/:schoolyear/:department', comb
     console.log('School Year:', schoolyear);
     console.log('Department:', department);
     
-    // Get all subjects for this faculty, school year, and department
+    // ✅ Query Subject model using 'faculty' field
     const subjects = await Subject.find({ 
       faculty: facultyId, 
       schoolyear,
@@ -208,8 +208,7 @@ router.get('/faculty-results/semesters/:facultyId/:schoolyear/:department', comb
   }
 });
 
-// Get subjects for Faculty evaluation
-// Get subjects for Faculty evaluation
+// Get subjects for Faculty evaluation (Query Subject model using 'faculty' field)
 router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semester', combinedAuth, async (req, res) => {
   try {
     const { facultyId, schoolyear, department, semester } = req.params;
@@ -220,28 +219,21 @@ router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semest
     console.log('Department:', department);
     console.log('Semester:', semester);
     
-    // Get subjects from Program Chair evaluations
-    const programChairSubjects = await Faculty_Evaluation.distinct('title', { 
-      facultyId, 
+    // ✅ Query Subject model using 'faculty' field (NOT evaluation models)
+    const subjects = await Subject.find({ 
+      faculty: facultyId, 
       schoolyear,
       department,
-      semester
-    });
+      semester 
+    }).select('title').lean();
     
-    // Get subjects from Student evaluations
-    const studentSubjects = await Student_Evaluation.distinct('title', { 
-      evaluatorId: facultyId,
-      evaluatorType: 'faculty',
-      schoolyear,
-      department,
-      semester
-    });
+    console.log('Total subjects found:', subjects.length);
     
-    // Combine and deduplicate
-    const allSubjects = [...new Set([...programChairSubjects, ...studentSubjects])].sort();
+    // Extract unique subject titles
+    const subjectTitles = [...new Set(subjects.map(s => s.title).filter(Boolean))].sort();
     
-    console.log('Subject Titles:', allSubjects);
-    res.json(allSubjects);
+    console.log('Subject Titles:', subjectTitles);
+    res.json(subjectTitles);
   } catch (error) {
     console.error('Error fetching faculty subjects:', error);
     res.status(500).json({ 
@@ -251,8 +243,7 @@ router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semest
   }
 });
 
-// Get evaluation results for Faculty
-// Get evaluation results for Faculty
+// Get evaluation results for Faculty (Query evaluation models using 'facultyId')
 router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
   try {
     const { facultyId, schoolyear, department, semester, subject } = req.params;
@@ -265,21 +256,20 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
     console.log('Subject:', subject);
     console.log('Authenticated User:', req.user?.username);
     
-    // Get student evaluations (using evaluatorId and evaluatorType)
+    // Get student evaluations (using facultyId)
     const studentEvaluations = await Student_Evaluation.find({
-      evaluatorId: facultyId,
-      evaluatorType: 'faculty',
+      facultyId: facultyId,  // ✅ Use 'facultyId' for Faculty members
       schoolyear,
       department,
       semester,
       title: subject  // ✅ Changed from 'subject' to 'title'
-    }).populate('userId', 'username').lean();
+    }).populate('studentId', 'username').lean();
     
     console.log('Student Evaluations Count:', studentEvaluations.length);
     
-    // Get program chair evaluations (using title field)
+    // Get program chair evaluations (using facultyId)
     const pcEvaluations = await Faculty_Evaluation.find({
-      facultyId: facultyId,
+      facultyId: facultyId,  // ✅ Use 'facultyId' for Faculty members
       schoolyear,
       department,
       semester,
@@ -292,7 +282,7 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
     const allEvaluations = [
       ...studentEvaluations.map(e => ({
         _id: e._id,
-        name: e.name || e.userId?.username || 'Unknown Student',
+        name: e.studentId?.username || 'Unknown Student',
         evaluatorType: 'Student',
         points: e.points,
         department: e.department,
@@ -300,7 +290,7 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
       })),
       ...pcEvaluations.map(e => ({
         _id: e._id,
-        name: e.name || e.userId?.username || 'Unknown Program Chair',
+        name: e.userId?.username || 'Unknown Program Chair',
         evaluatorType: 'Program Chair',
         points: e.points,
         department: e.department,
@@ -328,8 +318,7 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
 // PROGRAM CHAIR EVALUATION RESULTS ROUTES (Supervisor)
 // ============================================
 
-// Get school years for Program Chair evaluation
-// Get school years for Program Chair evaluation
+// Get school years for Program Chair evaluation (Query Subject model using 'user' field)
 router.get('/chair-results/school-years/:userId', combinedAuth, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -337,22 +326,28 @@ router.get('/chair-results/school-years/:userId', combinedAuth, async (req, res)
     console.log('=== FETCHING CHAIR SCHOOL YEARS ===');
     console.log('User ID:', userId);
     
-    // Get school years from Supervisor evaluations
-    const supervisorSchoolYears = await Faculty_Evaluation.distinct('schoolyear', { 
-      userId 
-    });
+    // ✅ Query Subject model using 'user' field (Program Chair)
+    const subjects = await Subject.find({ 
+      user: userId 
+    }).select('schoolyear').lean();
     
-    // Get school years from Student evaluations
-    const studentSchoolYears = await Student_Evaluation.distinct('schoolyear', { 
-      evaluatorId: userId,
-      evaluatorType: 'faculty'
-    });
+    console.log('Total subjects found:', subjects.length);
     
-    // Combine and deduplicate
-    const allSchoolYears = [...new Set([...supervisorSchoolYears, ...studentSchoolYears])].sort();
+    if (subjects.length === 0) {
+      console.log('No subjects found for this program chair');
+      return res.status(404).json({ 
+        message: 'No school years available',
+        userId: userId,
+        subjectCount: 0,
+        availableSchoolYears: []
+      });
+    }
     
-    console.log('School Years:', allSchoolYears);
-    res.json(allSchoolYears);
+    // Extract unique school years
+    const schoolYears = [...new Set(subjects.map(s => s.schoolyear).filter(Boolean))].sort();
+    
+    console.log('School Years:', schoolYears);
+    res.json(schoolYears);
   } catch (error) {
     console.error('Error fetching chair school years:', error);
     res.status(500).json({ 
@@ -362,7 +357,7 @@ router.get('/chair-results/school-years/:userId', combinedAuth, async (req, res)
   }
 });
 
-// Get departments for Program Chair evaluation
+// Get departments for Program Chair evaluation (Query Subject model using 'user' field)
 router.get('/chair-results/departments/:userId/:schoolyear', combinedAuth, async (req, res) => {
   try {
     const { userId, schoolyear } = req.params;
@@ -371,24 +366,19 @@ router.get('/chair-results/departments/:userId/:schoolyear', combinedAuth, async
     console.log('User ID:', userId);
     console.log('School Year:', schoolyear);
     
-    // Get departments from Supervisor evaluations
-    const supervisorDepts = await Faculty_Evaluation.distinct('department', { 
-      userId, 
+    // ✅ Query Subject model using 'user' field (Program Chair)
+    const subjects = await Subject.find({ 
+      user: userId, 
       schoolyear 
-    });
+    }).select('department').lean();
     
-    // Get departments from Student evaluations
-    const studentDepts = await Student_Evaluation.distinct('department', { 
-      evaluatorId: userId,
-      evaluatorType: 'faculty',
-      schoolyear 
-    });
+    console.log('Total subjects found:', subjects.length);
     
-    // Combine and deduplicate
-    const allDepartments = [...new Set([...supervisorDepts, ...studentDepts])].sort();
+    // Extract unique departments
+    const departments = [...new Set(subjects.map(s => s.department).filter(Boolean))].sort();
     
-    console.log('Departments:', allDepartments);
-    res.json(allDepartments);
+    console.log('Departments:', departments);
+    res.json(departments);
   } catch (error) {
     console.error('Error fetching chair departments:', error);
     res.status(500).json({ 
@@ -398,7 +388,7 @@ router.get('/chair-results/departments/:userId/:schoolyear', combinedAuth, async
   }
 });
 
-// Get semesters for Program Chair evaluation
+// Get semesters for Program Chair evaluation (Query Subject model using 'user' field)
 router.get('/chair-results/semesters/:userId/:schoolyear/:department', combinedAuth, async (req, res) => {
   try {
     const { userId, schoolyear, department } = req.params;
@@ -408,26 +398,20 @@ router.get('/chair-results/semesters/:userId/:schoolyear/:department', combinedA
     console.log('School Year:', schoolyear);
     console.log('Department:', department);
     
-    // Get semesters from Supervisor evaluations
-    const supervisorSemesters = await Faculty_Evaluation.distinct('semester', { 
-      userId, 
+    // ✅ Query Subject model using 'user' field (Program Chair)
+    const subjects = await Subject.find({ 
+      user: userId, 
       schoolyear,
-      department
-    });
+      department 
+    }).select('semester').lean();
     
-    // Get semesters from Student evaluations
-    const studentSemesters = await Student_Evaluation.distinct('semester', { 
-      evaluatorId: userId,
-      evaluatorType: 'faculty',
-      schoolyear,
-      department
-    });
+    console.log('Total subjects found:', subjects.length);
     
-    // Combine and deduplicate
-    const allSemesters = [...new Set([...supervisorSemesters, ...studentSemesters])].sort();
+    // Extract unique semesters
+    const semesters = [...new Set(subjects.map(s => s.semester).filter(Boolean))].sort();
     
-    console.log('Semesters:', allSemesters);
-    res.json(allSemesters);
+    console.log('Semesters:', semesters);
+    res.json(semesters);
   } catch (error) {
     console.error('Error fetching chair semesters:', error);
     res.status(500).json({ 
@@ -437,8 +421,7 @@ router.get('/chair-results/semesters/:userId/:schoolyear/:department', combinedA
   }
 });
 
-// Get subjects for Program Chair evaluation
-// Get subjects for Program Chair evaluation
+// Get subjects for Program Chair evaluation (Query Subject model using 'user' field)
 router.get('/chair-results/subjects/:userId/:schoolyear/:department/:semester', combinedAuth, async (req, res) => {
   try {
     const { userId, schoolyear, department, semester } = req.params;
@@ -449,28 +432,21 @@ router.get('/chair-results/subjects/:userId/:schoolyear/:department/:semester', 
     console.log('Department:', department);
     console.log('Semester:', semester);
     
-    // Get subjects from Supervisor evaluations
-    const supervisorSubjects = await Faculty_Evaluation.distinct('title', { 
-      userId, 
+    // ✅ Query Subject model using 'user' field (Program Chair)
+    const subjects = await Subject.find({ 
+      user: userId, 
       schoolyear,
       department,
-      semester
-    });
+      semester 
+    }).select('title').lean();
     
-    // Get subjects from Student evaluations
-    const studentSubjects = await Student_Evaluation.distinct('title', { 
-      evaluatorId: userId,
-      evaluatorType: 'faculty',
-      schoolyear,
-      department,
-      semester
-    });
+    console.log('Total subjects found:', subjects.length);
     
-    // Combine and deduplicate
-    const allSubjects = [...new Set([...supervisorSubjects, ...studentSubjects])].sort();
+    // Extract unique subject titles
+    const subjectTitles = [...new Set(subjects.map(s => s.title).filter(Boolean))].sort();
     
-    console.log('Subject Titles:', allSubjects);
-    res.json(allSubjects);
+    console.log('Subject Titles:', subjectTitles);
+    res.json(subjectTitles);
   } catch (error) {
     console.error('Error fetching chair subjects:', error);
     res.status(500).json({ 
@@ -480,7 +456,8 @@ router.get('/chair-results/subjects/:userId/:schoolyear/:department/:semester', 
   }
 });
 
-// Get evaluation results for Program Chair
+// Get evaluation results for Program Chair (Query evaluation models using 'userId')
+// Get evaluation results for Program Chair (Query evaluation models using 'userId')
 router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
   try {
     const { userId, schoolyear, department, semester, subject } = req.params;
@@ -495,7 +472,7 @@ router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:su
     
     // Get student evaluations (using evaluatorId and evaluatorType)
     const studentEvaluations = await Student_Evaluation.find({
-      evaluatorId: userId,  // ✅ Changed from programChairId
+      evaluatorId: userId,  // ✅ Use 'evaluatorId' for Program Chairs
       evaluatorType: 'faculty',  // ✅ Added this field
       schoolyear,
       department,
@@ -507,7 +484,7 @@ router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:su
     
     // Get supervisor evaluations (using userId field)
     const supervisorEvaluations = await Faculty_Evaluation.find({
-      userId: userId,  // ✅ Changed from programChairId
+      userId: userId,  // ✅ Use 'userId' for Program Chairs
       schoolyear,
       department,
       semester,
@@ -552,6 +529,7 @@ router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:su
   }
 });
 
+// Debug: Check if faculty exists
 router.get('/debug/faculty/:facultyId', combinedAuth, async (req, res) => {
   try {
     const { facultyId } = req.params;
@@ -618,13 +596,8 @@ router.get('/debug/user/:userId', combinedAuth, async (req, res) => {
 });
 
 // Debug: Check all subjects
-// DEBUG: Check all subjects
 router.get('/debug-all-subjects', combinedAuth, async (req, res) => {
   try {
-    const Subject = (await import('../models/Subject.js')).default;
-    const Faculty = (await import('../models/Faculty.js')).default;
-    const User = (await import('../models/User.js')).default;
-    
     const allSubjects = await Subject.find()
       .populate('faculty', 'username department')
       .populate('user', 'username role');
@@ -659,11 +632,6 @@ router.get('/debug-all-subjects', combinedAuth, async (req, res) => {
 router.get('/all-subjects', combinedAuth, async (req, res) => {
   try {
     console.log('=== FETCHING ALL SUBJECTS ===');
-    
-    // Import models directly (not dynamic)
-    const Subject = (await import('../models/Subject.js')).default;
-    const Faculty = (await import('../models/Faculty.js')).default;
-    const User = (await import('../models/User.js')).default;
     
     // Get all subjects
     const allSubjects = await Subject.find().lean();
@@ -731,4 +699,5 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
     });
   }
 });
+
 export default router;
