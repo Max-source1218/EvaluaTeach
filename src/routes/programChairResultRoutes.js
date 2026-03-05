@@ -9,22 +9,42 @@ const router = express.Router();
 router.get('/schoolyears/:programChairId', combinedAuth, async (req, res) => {
     try {
         const { programChairId } = req.params;
+        
         console.log('=== FETCHING SCHOOL YEARS FOR PROGRAM CHAIR ===');
-        console.log('Program Chair ID:', programChairId);
+        console.log('🔑 Program Chair ID:', programChairId);
+        console.log('👤 Authenticated User:', req.user?.username);
+        console.log('🎭 User Role:', req.user?.role);
+
+        // Debug: Check if programChairId exists in User model
+        const User = (await import('../models/User.js')).default;
+        const user = await User.findById(programChairId);
+        console.log('👤 User found:', user?.username || 'Not found');
+        console.log('🎭 User role:', user?.role);
 
         // Get school years from Supervisor evaluations
+        const Supervisor_Evaluation = (await import('../models/Supervisor_evaluation.js')).default;
         const supervisorSchoolYears = await Supervisor_Evaluation.distinct('schoolyear', { 
             instructorId: programChairId 
         });
         
+        console.log('📅 Supervisor School Years:', supervisorSchoolYears);
+        console.log('📅 Supervisor School Years Count:', supervisorSchoolYears.length);
+        
         // Get school years from Student evaluations (evaluatorType = 'programchair')
+        const StudentEvaluation = (await import('../models/Student_Evaluation.js')).default;
         const studentSchoolYears = await StudentEvaluation.distinct('schoolyear', { 
             evaluatorId: programChairId,
             evaluatorType: 'programchair'
         });
+        
+        console.log('📅 Student School Years:', studentSchoolYears);
+        console.log('📅 Student School Years Count:', studentSchoolYears.length);
 
         // Combine and deduplicate
         const allSchoolYears = [...new Set([...supervisorSchoolYears, ...studentSchoolYears])];
+        
+        console.log('✅ All School Years:', allSchoolYears);
+        console.log('✅ All School Years Count:', allSchoolYears.length);
         
         // Get count for each school year
         const schoolYearCounts = await Promise.all(allSchoolYears.map(async (schoolyear) => {
@@ -44,10 +64,11 @@ router.get('/schoolyears/:programChairId', combinedAuth, async (req, res) => {
         // Sort descending
         schoolYearCounts.sort((a, b) => b.schoolyear.localeCompare(a.schoolyear));
 
-        console.log('School years:', schoolYearCounts);
+        console.log('✅ Final School Years:', schoolYearCounts);
         res.json(schoolYearCounts);
     } catch (error) {
-        console.error('Error fetching school years:', error);
+        console.error('❌ Error fetching school years:', error);
+        console.error('❌ Error stack:', error.stack);
         res.status(500).json({ message: error.message });
     }
 });
