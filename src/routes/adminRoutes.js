@@ -209,6 +209,7 @@ router.get('/faculty-results/semesters/:facultyId/:schoolyear/:department', comb
 });
 
 // Get subjects for Faculty evaluation
+// Get subjects for Faculty evaluation
 router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semester', combinedAuth, async (req, res) => {
   try {
     const { facultyId, schoolyear, department, semester } = req.params;
@@ -219,21 +220,28 @@ router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semest
     console.log('Department:', department);
     console.log('Semester:', semester);
     
-    // Get all subjects for this faculty, school year, department, and semester
-    const subjects = await Subject.find({ 
-      faculty: facultyId, 
+    // Get subjects from Program Chair evaluations
+    const programChairSubjects = await Faculty_Evaluation.distinct('title', { 
+      facultyId, 
       schoolyear,
       department,
-      semester 
-    }).select('title').lean();
+      semester
+    });
     
-    console.log('Total subjects found:', subjects.length);
+    // Get subjects from Student evaluations
+    const studentSubjects = await Student_Evaluation.distinct('title', { 
+      evaluatorId: facultyId,
+      evaluatorType: 'faculty',
+      schoolyear,
+      department,
+      semester
+    });
     
-    // Extract unique subject titles
-    const subjectTitles = [...new Set(subjects.map(s => s.title).filter(Boolean))].sort();
+    // Combine and deduplicate
+    const allSubjects = [...new Set([...programChairSubjects, ...studentSubjects])].sort();
     
-    console.log('Subject Titles:', subjectTitles);
-    res.json(subjectTitles);
+    console.log('Subject Titles:', allSubjects);
+    res.json(allSubjects);
   } catch (error) {
     console.error('Error fetching faculty subjects:', error);
     res.status(500).json({ 
@@ -243,6 +251,7 @@ router.get('/faculty-results/subjects/:facultyId/:schoolyear/:department/:semest
   }
 });
 
+// Get evaluation results for Faculty
 // Get evaluation results for Faculty
 router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
   try {
@@ -254,30 +263,36 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
     console.log('Department:', department);
     console.log('Semester:', semester);
     console.log('Subject:', subject);
+    console.log('Authenticated User:', req.user?.username);
     
-    // Get student evaluations
+    // Get student evaluations (using evaluatorId and evaluatorType)
     const studentEvaluations = await Student_Evaluation.find({
-      facultyId: facultyId,
+      evaluatorId: facultyId,
+      evaluatorType: 'faculty',
       schoolyear,
       department,
       semester,
-      subject
-    }).populate('studentId', 'username').lean();
+      title: subject  // ✅ Changed from 'subject' to 'title'
+    }).populate('userId', 'username').lean();
     
-    // Get program chair evaluations
+    console.log('Student Evaluations Count:', studentEvaluations.length);
+    
+    // Get program chair evaluations (using title field)
     const pcEvaluations = await Faculty_Evaluation.find({
       facultyId: facultyId,
       schoolyear,
       department,
       semester,
-      subject
+      title: subject  // ✅ Changed from 'subject' to 'title'
     }).populate('userId', 'username').lean();
+    
+    console.log('Program Chair Evaluations Count:', pcEvaluations.length);
     
     // Combine and format results
     const allEvaluations = [
       ...studentEvaluations.map(e => ({
         _id: e._id,
-        name: e.studentId?.username || 'Unknown Student',
+        name: e.name || e.userId?.username || 'Unknown Student',
         evaluatorType: 'Student',
         points: e.points,
         department: e.department,
@@ -285,7 +300,7 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
       })),
       ...pcEvaluations.map(e => ({
         _id: e._id,
-        name: e.userId?.username || 'Unknown Program Chair',
+        name: e.name || e.userId?.username || 'Unknown Program Chair',
         evaluatorType: 'Program Chair',
         points: e.points,
         department: e.department,
@@ -296,7 +311,9 @@ router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semeste
     // Sort by points (highest first)
     allEvaluations.sort((a, b) => b.points - a.points);
     
-    console.log('Faculty Evaluation Results:', allEvaluations.length);
+    console.log('Total Evaluations:', allEvaluations.length);
+    console.log('Evaluations Data:', allEvaluations);
+    
     res.json(allEvaluations);
   } catch (error) {
     console.error('Error fetching faculty evaluation results:', error);
