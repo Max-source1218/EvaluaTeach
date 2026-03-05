@@ -150,5 +150,57 @@ router.get('/all-subjects', combinedAuth, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+// Create a new subject
+router.post('/subject', combinedAuth, async (req, res) => {
+    try {
+        console.log('=== CREATING SUBJECT ===');
+        console.log('Request body:', req.body);
+        
+        const { title, semester, schoolyear, department, facultyId, instructorId } = req.body;
+        
+        // Accept both facultyId and instructorId for compatibility
+        const userId = facultyId || instructorId;
+        
+        if (!title || !semester || !schoolyear || !department || !userId) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+        
+        // Import models
+        const Subject = (await import('../models/Subject.js')).default;
+        const Faculty = (await import('../models/Faculty.js')).default;
+        const User = (await import('../models/User.js')).default;
+        
+        // Verify the user exists
+        let user;
+        if (userId) {
+            user = await Faculty.findById(userId);
+            if (!user) {
+                user = await User.findById(userId);
+            }
+        }
+        
+        if (!user) {
+            return res.status(404).json({ message: 'Instructor not found' });
+        }
+        
+        // Create subject
+        const subject = new Subject({
+            title,
+            semester,
+            schoolyear,
+            department,
+            faculty: userId,
+            user: req.user._id, // Current logged-in user (Program Chair or Supervisor)
+        });
+        
+        await subject.save();
+        
+        console.log('Subject created:', subject);
+        res.json({ message: 'Subject created successfully', subject });
+    } catch (error) {
+        console.error('Error creating subject:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
 
 export default router;
