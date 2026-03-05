@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 const studentEvaluationSchema = new mongoose.Schema({
     facultyId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -11,7 +13,7 @@ const studentEvaluationSchema = new mongoose.Schema({
     evaluatorType: {
         type: String,
         required: true,
-        enum: ['faculty', 'programChair', 'Student'], // ✅ Added 'Student'
+        enum: ['faculty', 'programChair', 'Student'],
     },
     schoolyear: {
         type: String,
