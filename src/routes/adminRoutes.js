@@ -458,71 +458,60 @@ router.get('/chair-results/subjects/:userId/:schoolyear/:department/:semester', 
 
 // Get evaluation results for Program Chair (Query evaluation models using 'userId')
 // Get evaluation results for Program Chair (Query evaluation models using 'userId')
-router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
+// Get evaluation results for Faculty
+router.get('/faculty-results/results/:facultyId/:schoolyear/:department/:semester/:subject', combinedAuth, async (req, res) => {
   try {
-    const { userId, schoolyear, department, semester, subject } = req.params;
+    const { facultyId, schoolyear, department, semester, subject } = req.params;
     
-    console.log('=== FETCHING CHAIR EVALUATION RESULTS ===');
-    console.log('User ID:', userId);
+    console.log('=== FETCHING FACULTY EVALUATION RESULTS ===');
+    console.log('Faculty ID:', facultyId);
     console.log('School Year:', schoolyear);
     console.log('Department:', department);
     console.log('Semester:', semester);
     console.log('Subject:', subject);
-    console.log('Authenticated User:', req.user?.username);
     
-    // Debug: Check if userId exists in User model
-    const user = await User.findById(userId);
-    console.log('User found:', user?.username || 'Not found');
-    
-    // Debug: Check Student_Evaluation records
+    // Get student evaluations (using facultyId)
     const studentEvaluations = await Student_Evaluation.find({
-      evaluatorId: userId,
-      evaluatorType: 'faculty',
+      facultyId: facultyId,  // ✅ Use 'facultyId' for Faculty members
       schoolyear,
       department,
       semester,
       title: subject
-    }).populate('userId', 'username').lean();
+    }).populate('studentId', 'username').lean();
     
     console.log('Student Evaluations Count:', studentEvaluations.length);
     if (studentEvaluations.length > 0) {
       console.log('Sample Student Evaluation:', JSON.stringify(studentEvaluations[0], null, 2));
     }
     
-    // Debug: Check Faculty_Evaluation records
-    const supervisorEvaluations = await Faculty_Evaluation.find({
-      userId: userId,
+    // Get program chair evaluations (using facultyId)
+    const pcEvaluations = await Faculty_Evaluation.find({
+      facultyId: facultyId,
       schoolyear,
       department,
       semester,
       title: subject
     }).populate('userId', 'username').lean();
     
-    console.log('Supervisor Evaluations Count:', supervisorEvaluations.length);
-    if (supervisorEvaluations.length > 0) {
-      console.log('Sample Supervisor Evaluation:', JSON.stringify(supervisorEvaluations[0], null, 2));
+    console.log('Program Chair Evaluations Count:', pcEvaluations.length);
+    if (pcEvaluations.length > 0) {
+      console.log('Sample PC Evaluation:', JSON.stringify(pcEvaluations[0], null, 2));
     }
-    
-    // Debug: Check ALL evaluations for this user (without filters)
-    const allStudentEvals = await Student_Evaluation.find({ evaluatorId: userId }).countDocuments();
-    const allSupervisorEvals = await Faculty_Evaluation.find({ userId: userId }).countDocuments();
-    console.log('Total Student Evaluations (any):', allStudentEvals);
-    console.log('Total Supervisor Evaluations (any):', allSupervisorEvals);
     
     // Combine and format results
     const allEvaluations = [
       ...studentEvaluations.map(e => ({
         _id: e._id,
-        name: e.name || e.userId?.username || 'Unknown Student',
+        name: e.studentId?.username || 'Unknown Student',
         evaluatorType: 'Student',
         points: e.points,
         department: e.department,
         comments: e.comments || ''
       })),
-      ...supervisorEvaluations.map(e => ({
+      ...pcEvaluations.map(e => ({
         _id: e._id,
-        name: e.name || e.userId?.username || 'Unknown Supervisor',
-        evaluatorType: 'Supervisor',
+        name: e.userId?.username || 'Unknown Program Chair',
+        evaluatorType: 'Program Chair',
         points: e.points,
         department: e.department,
         comments: e.comments || ''
@@ -537,14 +526,13 @@ router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:su
     
     res.json(allEvaluations);
   } catch (error) {
-    console.error('Error fetching chair evaluation results:', error);
+    console.error('Error fetching faculty evaluation results:', error);
     res.status(500).json({ 
-      message: 'Failed to fetch chair evaluation results',
+      message: 'Failed to fetch evaluation results',
       error: error.message
     });
   }
 });
-
 // Debug: Check if faculty exists
 router.get('/debug/faculty/:facultyId', combinedAuth, async (req, res) => {
   try {
