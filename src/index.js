@@ -44,7 +44,7 @@ app.use("/api/student", studentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/subject", subjectRoutes);
 app.use("/api/student-detail", StudentDetailRoutes);
-app.use("/api/evaluation", evaluationRoutes);
+app.use("/api/student-evaluation", evaluationRoutes);
 app.use("/api/supervisor-detail", supervisorDetailRoutes);
 app.use("/api/supervisor-evaluation", supervisorEvaluationRoutes);
 app.use("/api/faculty-evaluation", facultyEvaluationRoutes);

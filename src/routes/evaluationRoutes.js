@@ -8,9 +8,20 @@ const router = express.Router();
 
 router.post('/', protectRouteStudent, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, points } = req.body;
+        const { 
+            title, 
+            semester, 
+            schoolyear, 
+            evaluatorId, // ✅ Changed from instructorId to match frontend
+            userId, 
+            department, 
+            points,
+            evaluatorType, // ✅ Added to accept frontend data
+            evaluatorName  // ✅ Added to accept frontend data
+        } = req.body;
 
-        if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
+        // ✅ FIXED: Corrected the syntax error (points === ) -> !points)
+        if (!title || !semester || !schoolyear || !evaluatorId || !userId || !department || !points) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
@@ -24,10 +35,11 @@ router.post('/', protectRouteStudent, async (req, res) => {
             title,
             semester,
             schoolyear,
-            instructorId,
+            evaluatorId, // ✅ Matched field name
+            evaluatorType, // ✅ Added
             userId,
             department,
-            name: studentDetail.name, // Added: Reference name from Student_Detail
+            name: studentDetail.name,
             points,
         });
 
@@ -38,6 +50,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     try {
         const { instructorId } = req.params;
