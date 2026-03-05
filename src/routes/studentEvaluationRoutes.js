@@ -8,18 +8,28 @@ const router = express.Router();
 // Create new evaluation
 router.post('/', protectRouteStudent, async (req, res) => {
     try {
-        const { title, semester, schoolyear, evaluatorId, evaluatorType, userId, department, points, name } = req.body;
+        const { 
+            title, 
+            semester, 
+            schoolyear, 
+            evaluatorId, 
+            evaluatorType, 
+            studentId,  // ✅ Changed from userId to match model
+            department, 
+            points, 
+            name 
+        } = req.body;
 
         console.log('=== POST /student-evaluation ===');
         console.log('req.body:', req.body);
 
-        // Validation
-        if (!title || !semester || !schoolyear || !evaluatorId || !evaluatorType || !userId || !department || points === undefined) {
+        // ✅ FIXED: Corrected the syntax error
+        if (!title || !semester || !schoolyear || !evaluatorId || !evaluatorType || !studentId || !department || !points) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Validate evaluatorType
-        if (!['faculty', 'programchair'].includes(evaluatorType)) {
+        // ✅ FIXED: Added 'Student' to allowed evaluator types
+        if (!['faculty', 'programchair', 'Student'].includes(evaluatorType)) {
             return res.status(400).json({ message: 'Invalid evaluator type' });
         }
 
@@ -30,7 +40,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
             schoolyear,
             evaluatorId,
             evaluatorType,
-            userId,
+            studentId, // ✅ Match model field name
             department,
             name: name || 'Unknown',
             points,
@@ -42,6 +52,7 @@ router.post('/', protectRouteStudent, async (req, res) => {
         res.status(201).json({ message: 'Evaluation submitted successfully', evaluation: newEvaluation });
     } catch (error) {
         console.error('Error creating evaluation:', error);
+        console.error('Error Stack:', error.stack);
         res.status(500).json({ message: error.message });
     }
 });
@@ -62,7 +73,7 @@ router.get('/evaluator/:evaluatorId', protectRouteStudent, async (req, res) => {
         }
 
         const evaluations = await StudentEvaluation.find(query)
-            .populate('userId', 'username')
+            .populate('studentId', 'username') // ✅ Changed from userId to studentId
             .sort({ createdAt: -1 });
 
         // Group by schoolyear and semester
@@ -117,7 +128,7 @@ router.get('/details/:evaluatorId/:schoolyear/:semester/:title', protectRouteStu
         }
 
         const evaluations = await StudentEvaluation.find(query)
-            .populate('userId', 'username')
+            .populate('studentId', 'username') // ✅ Changed from userId to studentId
             .sort({ createdAt: -1 });
 
         res.json(evaluations);
@@ -150,7 +161,7 @@ router.get('/semesters/:evaluatorId/:schoolyear', protectRouteStudent, async (re
 router.get('/my-evaluations', protectRouteStudent, async (req, res) => {
     try {
         const userId = req.user._id;
-        const evaluations = await StudentEvaluation.find({ userId })
+        const evaluations = await StudentEvaluation.find({ studentId: userId }) // ✅ Changed from userId to studentId
             .sort({ createdAt: -1 });
         res.json(evaluations);
     } catch (error) {
