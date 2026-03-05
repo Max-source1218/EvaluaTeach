@@ -12,21 +12,20 @@ router.post('/', protectRouteStudent, async (req, res) => {
             title, 
             semester, 
             schoolyear, 
-            evaluatorId, // ✅ Changed from instructorId to match frontend
-            userId, 
+            evaluatorId, // ✅ Changed from instructorId to match model
+            studentId,  // ✅ Changed from userId to match model
             department, 
             points,
-            evaluatorType, // ✅ Added to accept frontend data
-            evaluatorName  // ✅ Added to accept frontend data
+            evaluatorType // ✅ Added to match model
         } = req.body;
 
-        // ✅ FIXED: Corrected the syntax error (points === ) -> !points)
-        if (!title || !semester || !schoolyear || !evaluatorId || !userId || !department || !points) {
+        // ✅ FIXED: Corrected the syntax error
+        if (!title || !semester || !schoolyear || !evaluatorId || !studentId || !department || !points) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Fetch the name from Student_Detail using userId
-        const studentDetail = await Student_Detail.findOne({ user: userId });
+        // Fetch the name from Student_Detail using studentId
+        const studentDetail = await Student_Detail.findOne({ user: studentId });
         if (!studentDetail) {
             return res.status(404).json({ message: 'Student details not found' });
         }
@@ -35,12 +34,12 @@ router.post('/', protectRouteStudent, async (req, res) => {
             title,
             semester,
             schoolyear,
-            evaluatorId, // ✅ Matched field name
-            evaluatorType, // ✅ Added
-            userId,
+            evaluatorId, // ✅ Match model field name
+            evaluatorType, // ✅ Match model field name
+            studentId, // ✅ Match model field name
             department,
-            name: studentDetail.name,
             points,
+            // ✅ Removed 'name' - not in model schema
         });
 
         await newEvaluation.save();
