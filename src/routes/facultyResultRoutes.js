@@ -171,14 +171,15 @@ router.get('/results/:facultyId/:schoolyear/:department/:semester/:subject', com
         }).populate('userId', 'username');
 
         // Get evaluations from Students
+        // Get evaluations from Students
         const studentEvaluations = await StudentEvaluation.find({ 
             evaluatorId: facultyId,
-            evaluatorType: 'faculty',
+            evaluatorType: 'Student', // ✅ Changed from 'faculty' to 'Student'
             schoolyear,
             department,
             semester,
             title: subject
-        }).populate('userId', 'username');
+        }).populate('studentId', 'username'); // ✅ Changed from 'userId' to 'studentId'
 
         console.log('Program Chair evaluations:', programChairEvaluations.length);
         console.log('Student evaluations:', studentEvaluations.length);

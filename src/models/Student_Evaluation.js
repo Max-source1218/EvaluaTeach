@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-
 const studentEvaluationSchema = new mongoose.Schema({
     facultyId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -7,13 +5,13 @@ const studentEvaluationSchema = new mongoose.Schema({
     },
     evaluatorId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Can be Faculty or Program Chair
+        ref: 'User',
         required: true,
     },
     evaluatorType: {
         type: String,
         required: true,
-        enum: ['faculty', 'programChair'], // ✅ Important!
+        enum: ['faculty', 'programChair', 'Student'], // ✅ Added 'Student'
     },
     schoolyear: {
         type: String,
