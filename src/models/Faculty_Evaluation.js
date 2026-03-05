@@ -1,7 +1,6 @@
-// models/Faculty_Evaluation.js
 import mongoose from "mongoose";
 
-const faculty_evaluationSchema = new mongoose.Schema({
+const facultyEvaluationSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
@@ -18,12 +17,11 @@ const faculty_evaluationSchema = new mongoose.Schema({
     },
     facultyId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Faculty', // Faculty members are stored in Faculty model
-        required: true,
+        ref: 'Faculty',
     },
     userId: { 
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Program Chair/Supervisor is in User model
+        ref: 'User', // Program Chair or Supervisor
         required: true,
     },
     department: {
@@ -41,5 +39,5 @@ const faculty_evaluationSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Faculty_Evaluation = mongoose.model("Faculty_Evaluation", faculty_evaluationSchema);
+const Faculty_Evaluation = mongoose.model("Faculty_Evaluation", facultyEvaluationSchema);
 export default Faculty_Evaluation;

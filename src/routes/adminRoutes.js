@@ -470,28 +470,44 @@ router.get('/chair-results/results/:userId/:schoolyear/:department/:semester/:su
     console.log('Subject:', subject);
     console.log('Authenticated User:', req.user?.username);
     
-    // Get student evaluations (using evaluatorId and evaluatorType)
+    // Debug: Check if userId exists in User model
+    const user = await User.findById(userId);
+    console.log('User found:', user?.username || 'Not found');
+    
+    // Debug: Check Student_Evaluation records
     const studentEvaluations = await Student_Evaluation.find({
-      evaluatorId: userId,  // ✅ Use 'evaluatorId' for Program Chairs
-      evaluatorType: 'faculty',  // ✅ Added this field
+      evaluatorId: userId,
+      evaluatorType: 'faculty',
       schoolyear,
       department,
       semester,
-      title: subject  // ✅ Changed from 'subject' to 'title'
+      title: subject
     }).populate('userId', 'username').lean();
     
     console.log('Student Evaluations Count:', studentEvaluations.length);
+    if (studentEvaluations.length > 0) {
+      console.log('Sample Student Evaluation:', JSON.stringify(studentEvaluations[0], null, 2));
+    }
     
-    // Get supervisor evaluations (using userId field)
+    // Debug: Check Faculty_Evaluation records
     const supervisorEvaluations = await Faculty_Evaluation.find({
-      userId: userId,  // ✅ Use 'userId' for Program Chairs
+      userId: userId,
       schoolyear,
       department,
       semester,
-      title: subject  // ✅ Changed from 'subject' to 'title'
+      title: subject
     }).populate('userId', 'username').lean();
     
     console.log('Supervisor Evaluations Count:', supervisorEvaluations.length);
+    if (supervisorEvaluations.length > 0) {
+      console.log('Sample Supervisor Evaluation:', JSON.stringify(supervisorEvaluations[0], null, 2));
+    }
+    
+    // Debug: Check ALL evaluations for this user (without filters)
+    const allStudentEvals = await Student_Evaluation.find({ evaluatorId: userId }).countDocuments();
+    const allSupervisorEvals = await Faculty_Evaluation.find({ userId: userId }).countDocuments();
+    console.log('Total Student Evaluations (any):', allStudentEvals);
+    console.log('Total Supervisor Evaluations (any):', allSupervisorEvals);
     
     // Combine and format results
     const allEvaluations = [
