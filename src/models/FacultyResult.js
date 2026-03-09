@@ -1,4 +1,4 @@
-// models/FacultyResult.js
+// models/FacultyResult.js = This model displays results from program chair evaluation and student evaluation
 import mongoose from "mongoose";
 
 // This is a virtual/computed model - we don't actually store data

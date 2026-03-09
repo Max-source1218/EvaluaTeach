@@ -5,83 +5,67 @@ import User from "../models/User.js";
 const combinedAuth = async (request, response, next) => {
     try {
         const authHeader = request.header("Authorization");
-        
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            console.log("=== AUTH FAILED: No token ===");
-            return response.status(401).json({ 
+
+        if (!authHeader?.startsWith("Bearer ")) {
+            return response.status(401).json({
                 message: "No authentication token",
-                error: "Missing or invalid Authorization header"
+                error: "Missing or invalid Authorization header",
             });
         }
-        
+
         const token = authHeader.replace("Bearer ", "").trim();
-        
         if (!token) {
-            console.log("=== AUTH FAILED: Empty token ===");
-            return response.status(401).json({ 
+            return response.status(401).json({
                 message: "No authentication token",
-                error: "Token is empty"
+                error: "Token is empty",
             });
         }
-        
-        console.log("=== COMBINED AUTH ===");
-        console.log("Token (first 20 chars):", token.substring(0, 20) + "...");
-        
-        // Verify token
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log("Decoded _id:", decoded._id);
-        console.log("Decoded role:", decoded.role);
+        const userId = decoded._id || decoded.id;
 
-        // Try to find Faculty first
-        let user = await Faculty.findById(decoded._id).select("-password");
-        
-        // If not found, try User (admin)
+        // ✅ Check User model first (covers Supervisor + Program Chair)
+        // Faculty is the minority of users hitting combinedAuth routes
+        let user = await User.findById(userId).select("-password");
+        let userType = user?.role || null;
+
+        // ✅ Fall back to Faculty if not found in User model
         if (!user) {
-            user = await User.findById(decoded._id).select("-password");
-            console.log("Found as admin User:", user ? "YES" : "NO");
-        } else {
-            console.log("Found as Faculty:", "YES");
+            user = await Faculty.findById(userId).select("-password");
+            userType = "Faculty";
         }
-        
+
         if (!user) {
-            console.log("=== AUTH FAILED: User not found ===");
-            return response.status(401).json({ 
+            return response.status(401).json({
                 message: "User not found",
-                error: "User ID not found in database"
+                error: "User ID not found in any user collection",
             });
         }
 
-        // Add user info to request
+        // ✅ Explicit userType — not relying on missing field fallback
         request.user = user;
-        request.userType = user.role || "Faculty";
-        console.log("=== AUTH SUCCESS ===");
-        console.log("User:", user.username, "| Role:", user.role);
-        
+        request.userType = userType;
+
         next();
     } catch (error) {
-        console.error("=== AUTH ERROR ===");
-        console.error("Error type:", error.name);
-        console.error("Error message:", error.message);
-        
-        // Handle JWT specific errors
         if (error.name === "JsonWebTokenError") {
-            return response.status(401).json({ 
+            return response.status(401).json({
                 message: "Invalid token",
-                error: "Token is invalid"
+                error: "Token is invalid",
             });
         }
-        
+
         if (error.name === "TokenExpiredError") {
-            return response.status(401).json({ 
+            return response.status(401).json({
                 message: "Token expired",
-                error: "Authentication token has expired"
+                error: "Authentication token has expired",
             });
         }
-        
-        // Generic error
-        return response.status(401).json({ 
+
+        console.error("Combined auth error:", error.message);
+        return response.status(401).json({
             message: "Authentication failed",
-            error: error.message
+            error: error.message,
         });
     }
 };

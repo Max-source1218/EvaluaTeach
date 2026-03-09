@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const supervisorFormSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'User', //User ID 
         required: true,
     },
     name: {
@@ -27,7 +27,7 @@ const supervisorFormSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['Program Chair', 'Supervisor'],
+        enum: ['Program Chair', 'Supervisor'], //It must be recorded whether the faculty user was evaluated by a Program chair or supervisor
         required: true,
     },
 }, { timestamps: true });

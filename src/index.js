@@ -13,7 +13,6 @@ import facultyRoutes from "./routes/facultyRoutes.js";
 import supervisorDetailRoutes from "./routes/supervisorDetailRoutes.js";
 import supervisorEvaluationRoutes from "./routes/supervisor_evaluationRoutes.js";
 import facultyEvaluationRoutes from "./routes/facultyEvaluationRoutes.js";
-import studentEvaluationRoutes from "./routes/studentEvaluationRoutes.js";
 import facultyResultRoutes from "./routes/facultyResultRoutes.js";
 import programChairResultRoutes from "./routes/programChairResultRoutes.js";
 
@@ -48,7 +47,6 @@ app.use("/api/student-evaluation", evaluationRoutes);
 app.use("/api/supervisor-detail", supervisorDetailRoutes);
 app.use("/api/supervisor-evaluation", supervisorEvaluationRoutes);
 app.use("/api/faculty-evaluation", facultyEvaluationRoutes);
-app.use("/api/student-evaluation", studentEvaluationRoutes);
 app.use("/api/faculty-results", facultyResultRoutes);
 app.use("/api/program-chair-results", programChairResultRoutes);
 

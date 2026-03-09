@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"; // This model collects the evaluation of the faculty user as the evaluation form is submitted
 
 const facultyEvaluationSchema = new mongoose.Schema({
     title: {

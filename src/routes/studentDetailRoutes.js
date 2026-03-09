@@ -2,56 +2,30 @@ import express from "express";
 import Student_Detail from "../models/StudentForm.js";
 import Subject from "../models/Subject.js";
 import protectRouteStudent from "../middleware/student.middleware.js";
+import protectRoute from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// Create student detail
+// Create or update student detail
 router.post("/", protectRouteStudent, async (req, res) => {
     try {
         const { name, department, course, year_level, schoolyear, semester } = req.body;
         const userId = req.user._id;
 
-        console.log('=== CREATE STUDENT DETAIL ===');
-        console.log('User ID:', userId);
-
         if (!department || !course || !year_level || !schoolyear || !semester) {
             return res.status(400).json({ message: "Please provide all required details" });
         }
 
-        // Check if student already has details
-        const existingDetail = await Student_Detail.findOne({ user: userId });
-        if (existingDetail) {
-            // Update existing
-            existingDetail.name = name || existingDetail.name;
-            existingDetail.department = department;
-            existingDetail.course = course;
-            existingDetail.year_level = year_level;
-            existingDetail.schoolyear = schoolyear;
-            existingDetail.semester = semester;
-            
-            await existingDetail.save();
-            console.log("Student detail updated:", existingDetail._id);
-            
-            return res.status(200).json({ message: 'Details updated successfully', newForm: existingDetail });
-        }
+        // ✅ Atomic upsert — no race condition, same fix as supervisorDetailRoutes
+        const form = await Student_Detail.findOneAndUpdate(
+            { user: userId },
+            { name: name || '', department, course, year_level, schoolyear, semester },
+            { new: true, upsert: true, runValidators: true }
+        );
 
-        // Create new
-        const newForm = new Student_Detail({
-            name,
-            department,
-            course,
-            year_level,
-            schoolyear,
-            semester,
-            user: userId,
-        });
-        
-        await newForm.save();
-        console.log("Student detail saved:", newForm._id);
-
-        res.status(201).json({ message: 'Details saved successfully', newForm });
+        res.status(200).json({ message: 'Details saved successfully', newForm: form });
     } catch (err) {
-        console.log("Error creating student detail: ", err.message);
+        console.error("Error saving student detail:", err.message);
         res.status(500).json({ message: err.message });
     }
 });
@@ -59,37 +33,33 @@ router.post("/", protectRouteStudent, async (req, res) => {
 // Get current student's detail
 router.get("/user", protectRouteStudent, async (req, res) => {
     try {
-        const userId = req.user._id;
-        console.log('=== GET STUDENT DETAIL ===');
-        console.log('User ID:', userId);
-
-        const studentForm = await Student_Detail.findOne({ user: userId });
+        const studentForm = await Student_Detail.findOne({ user: req.user._id });
         if (!studentForm) {
             return res.status(404).json({ message: 'No details found' });
         }
-        
-        console.log('Student detail found:', studentForm._id);
         res.json(studentForm);
     } catch (error) {
-        console.error("Get student details error", error.message);
+        console.error("Get student details error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// Get all students (for admin)
-router.get("/all", protectRouteStudent, async (req, res) => {
+// Get all student details — Supervisor/Program Chair only
+// ✅ Fixed: was protectRouteStudent (any student could access this)
+router.get("/all", protectRoute, async (req, res) => {
     try {
         const students = await Student_Detail.find()
             .populate('user', 'username email')
             .sort({ createdAt: -1 });
         res.json(students);
     } catch (error) {
-        console.error("Get all students error", error.message);
+        console.error("Get all students error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// Get evaluators (Faculty AND Program Chair) with their subjects
+// Get evaluators (Faculty + Program Chair) with their subjects
+// Used by students to find who they can evaluate
 router.get('/evaluators', protectRouteStudent, async (req, res) => {
     try {
         const { department, schoolyear, semester } = req.query;
@@ -98,76 +68,41 @@ router.get('/evaluators', protectRouteStudent, async (req, res) => {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        console.log('=== FETCHING EVALUATORS ===');
-        console.log('Params:', { department, schoolyear, semester });
+        const subjects = await Subject.find({ department, schoolyear, semester })
+            .populate('faculty', 'username department profileImage')
+            .populate('user', 'username department profileImage');
 
-        // Fetch subjects matching the filters
-        const subjects = await Subject.find({
-            department,
-            schoolyear,
-            semester
-        })
-        .populate('faculty', 'username department profileImage')
-        .populate('user', 'username department profileImage');
-
-        console.log('Subjects found:', subjects.length);
-
-        // Group evaluators (both Faculty and Program Chair)
+        // Group by evaluator
         const evaluatorsMap = {};
-        
         subjects.forEach(subject => {
-            let evaluatorId, evaluatorName, evaluatorType, evaluatorDepartment;
-            
-            // Check if it's a Faculty subject
-            if (subject.faculty && subject.faculty._id) {
-                evaluatorId = subject.faculty._id.toString();
-                evaluatorName = subject.faculty.username;
-                evaluatorType = 'faculty';
-                evaluatorDepartment = subject.faculty.department;
-            }
-            // Check if it's a Program Chair (User) subject
-            else if (subject.user && subject.user._id) {
-                evaluatorId = subject.user._id.toString();
-                evaluatorName = subject.user.username;
-                evaluatorType = 'programchair';
-                evaluatorDepartment = subject.user.department;
-            }
-            
-            if (!evaluatorId) return;
-            
-            if (!evaluatorsMap[evaluatorId]) {
-                evaluatorsMap[evaluatorId] = {
-                    _id: evaluatorId,
-                    name: evaluatorName || 'Unknown',
-                    type: evaluatorType,
-                    department: evaluatorDepartment || department,
+            const instructor = subject.faculty || subject.user;
+            if (!instructor?._id) return;
+
+            const id = instructor._id.toString();
+            const type = subject.faculty ? 'faculty' : 'programchair';
+
+            if (!evaluatorsMap[id]) {
+                evaluatorsMap[id] = {
+                    _id: id,
+                    name: instructor.username || 'Unknown',
+                    type,
+                    department: instructor.department || department,
                     subjects: [],
                 };
             }
-            
-            evaluatorsMap[evaluatorId].subjects.push({
-                _id: subject._id,
-                title: subject.title,
-            });
+
+            evaluatorsMap[id].subjects.push({ _id: subject._id, title: subject.title });
         });
 
         const evaluators = Object.values(evaluatorsMap);
-        console.log('Evaluators grouped:', evaluators.length);
-        
-        // Separate into two arrays for easier frontend handling
-        const facultyEvaluators = evaluators.filter(e => e.type === 'faculty');
-        const programChairEvaluators = evaluators.filter(e => e.type === 'programchair');
-
-        console.log('Faculty evaluators:', facultyEvaluators.length);
-        console.log('Program Chair evaluators:', programChairEvaluators.length);
 
         res.json({
-            faculty: facultyEvaluators,
-            programChairs: programChairEvaluators,
-            total: evaluators.length
+            faculty: evaluators.filter(e => e.type === 'faculty'),
+            programChairs: evaluators.filter(e => e.type === 'programchair'),
+            total: evaluators.length,
         });
     } catch (error) {
-        console.error('Error fetching evaluators:', error);
+        console.error('Error fetching evaluators:', error.message);
         res.status(500).json({ message: error.message });
     }
 });

@@ -2,13 +2,21 @@ import cron from "cron";
 import https from "https";
 
 const job = new cron.CronJob("*/14 * * * *", function () {
-    https
-        .get(process.env.API_URL, (res) => {
-            if(res.statusCode === 200) console.log("GET request sent successfully");
+  // Guard against missing env variable
+  if (!process.env.API_URL) {
+    console.warn("Cron job skipped: API_URL environment variable is not set");
+    return;
+  }
 
-            else console.log("GET request failed", res.statusCode);
-        })
-        .on("error", (e) => console.error("Error while sending request", e));
+  https
+    .get(process.env.API_URL, (res) => {
+      if (res.statusCode === 200) {
+        console.log("Keep-alive GET request sent successfully");
+      } else {
+        console.warn("Keep-alive GET request failed with status:", res.statusCode);
+      }
+    })
+    .on("error", (e) => console.error("Cron job request error:", e.message));
 });
 
 export default job;

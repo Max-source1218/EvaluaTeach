@@ -1,30 +1,29 @@
 import jwt from "jsonwebtoken";
-import Student from "../models/Student.js"; // Ensure this model exists
+import Student from "../models/Student.js";
 
 const protectRouteStudent = async (request, response, next) => {
-    try {
-        // Get Token (safely handle missing header)
-        const authHeader = request.header("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return response.status(401).json({ message: "No authentication token, access denied" });
-        }
-        const token = authHeader.replace("Bearer ", "");
-
-        // Verify token (ensure secret matches student login)
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // Find student (use Student model)
-        const student = await Student.findById(decoded._id).select("-password");
-        if (!student) {
-            return response.status(401).json({ message: "Token is not valid" });
-        }
-
-        request.user = student; // Set to student
-        next();
-    } catch (error) {
-        console.error("Authentication error:", error.message);
-        response.status(401).json({ message: "Token is not valid" });
+  try {
+    const authHeader = request.header("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return response.status(401).json({ message: "No authentication token, access denied" });
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const studentId = decoded._id || decoded.id;
+    const student = await Student.findById(studentId).select("-password");
+
+    if (!student) {
+      return response.status(401).json({ message: "Token is not valid - student not found" });
+    }
+
+    request.user = student;
+    next();
+  } catch (error) {
+    console.error("Student auth error:", error.message);
+    return response.status(401).json({ message: "Token is not valid" });
+  }
 };
 
 export default protectRouteStudent;

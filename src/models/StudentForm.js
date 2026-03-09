@@ -30,9 +30,9 @@ const studentdetailSchema = new mongoose.Schema({
         required: true,
         enum: ['1st Semester', '2nd Semester'], 
     },
-    user: { // Added: Reference to the logged-in user
+    user: { 
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Student', // Assuming your user model is 'User'
+        ref: 'Student', // Student ID
         required: true,
     },
 }, { timestamps: true });

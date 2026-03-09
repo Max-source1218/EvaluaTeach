@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"; //This model collects the evaluation of the program chair from supervisor user and student user
 
 const supervisor_evaluationSchema = new mongoose.Schema({
     title: {

@@ -1,12 +1,11 @@
 import express from 'express';
 import Faculty from "../models/Faculty.js";
-import jwt from "jsonwebtoken";
+import generateToken from "../lib/generateToken.js";
 import protectRoute from "../middleware/auth.middleware.js";
 import cloudinary from 'cloudinary';
 import multer from 'multer';
 import streamifier from 'streamifier';
 
-// Configure Cloudinary
 cloudinary.v2.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -14,85 +13,61 @@ cloudinary.v2.config({
 });
 
 const router = express.Router();
-
-// Multer for handling multipart/form-data
 const upload = multer({ storage: multer.memoryStorage() });
 
-const generateToken = (userId) => {
-    return jwt.sign({ _id: userId }, process.env.JWT_SECRET, { expiresIn: "15d" });
-};
-
-// Helper function to upload buffer to Cloudinary
 const uploadToCloudinary = (buffer) => {
     return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.v2.uploader.upload_stream(
+        const stream = cloudinary.v2.uploader.upload_stream(
             { folder: 'faculty_profiles' },
-            (error, result) => {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(result.secure_url);
-                }
-            }
+            (error, result) => error ? reject(error) : resolve(result.secure_url)
         );
-        streamifier.createReadStream(buffer).pipe(uploadStream);
+        streamifier.createReadStream(buffer).pipe(stream);
     });
 };
 
-// Register Faculty (Admin only)
-router.post("/register", protectRoute, upload.single('profileImage'), async (request, response) => {
+// ✅ Role guard helper — Supervisor only
+const requireSupervisor = (req, res, next) => {
+    if (req.user.role !== 'Supervisor') {
+        return res.status(403).json({ message: "Access denied - Supervisors only" });
+    }
+    next();
+};
+
+// Register Faculty — Supervisor only
+router.post("/register", protectRoute, requireSupervisor, upload.single('profileImage'), async (request, response) => {
     try {
         const { email, username, password, department } = request.body;
 
-        if (!email || !username || !password || !department) {
+        if (!email || !username || !password || !department)
             return response.status(400).json({ message: "All fields are required" });
-        }
 
-        if (password.length < 6) {
-            return response.status(400).json({ message: "Password should be at least 6 characters long" });
-        }
+        if (password.length < 6)
+            return response.status(400).json({ message: "Password must be at least 6 characters" });
 
-        if (username.length < 3) {
-            return response.status(400).json({ message: "Username should be at least 3 characters long" });
-        }
+        if (username.length < 3)
+            return response.status(400).json({ message: "Username must be at least 3 characters" });
 
-        const validDepartments = ['CCIT', 'CTE', 'CBAPA'];
-        if (!validDepartments.includes(department)) {
+        if (!['CCIT', 'CTE', 'CBAPA'].includes(department))
             return response.status(400).json({ message: "Invalid department selected" });
-        }
 
-        const existingEmail = await Faculty.findOne({ email });
-        if (existingEmail) {
+        if (await Faculty.findOne({ email }))
             return response.status(400).json({ message: "Email already exists" });
-        }
 
-        const existingUsername = await Faculty.findOne({ username });
-        if (existingUsername) {
+        if (await Faculty.findOne({ username }))
             return response.status(400).json({ message: "Username already exists" });
-        }
 
         let profileImage = "https://api.dicebear.com/9.x/avataaars/svg?seed=George";
 
-        // Upload image to Cloudinary if provided
         if (request.file) {
             try {
-                console.log('=== UPLOADING TO CLOUDINARY ===');
                 profileImage = await uploadToCloudinary(request.file.buffer);
-                console.log('Cloudinary URL:', profileImage);
             } catch (cloudinaryError) {
                 console.error('Cloudinary upload error:', cloudinaryError);
                 return response.status(500).json({ message: "Failed to upload image" });
             }
         }
 
-        const faculty = new Faculty({
-            email,
-            username,
-            password,
-            profileImage,
-            department,
-        });
-
+        const faculty = new Faculty({ email, username, password, profileImage, department });
         await faculty.save();
 
         response.status(201).json({
@@ -106,23 +81,26 @@ router.post("/register", protectRoute, upload.single('profileImage'), async (req
             },
         });
     } catch (error) {
-        console.log("Error in register route", error);
+        console.error("Error in faculty register route:", error.message);
         response.status(500).json({ message: "Internal server error" });
     }
 });
 
-// Faculty Login
+// Faculty Login — public
 router.post("/login", async (request, response) => {
     try {
         const { email, password } = request.body;
 
-        if (!email || !password) return response.status(400).json({ message: "All fields are required" });
+        if (!email || !password)
+            return response.status(400).json({ message: "All fields are required" });
 
         const faculty = await Faculty.findOne({ email });
-        if (!faculty) return response.status(400).json({ message: "User not found" });
+        if (!faculty)
+            return response.status(400).json({ message: "User not found" });
 
         const isPasswordCorrect = await faculty.comparePassword(password);
-        if (!isPasswordCorrect) return response.status(400).json({ message: "Wrong Password" });
+        if (!isPasswordCorrect)
+            return response.status(400).json({ message: "Wrong password" });
 
         const token = generateToken(faculty._id);
 
@@ -137,72 +115,67 @@ router.post("/login", async (request, response) => {
                 createdAt: faculty.createdAt,
             },
         });
-
     } catch (error) {
-        console.log("Error in login route", error);
+        console.error("Error in faculty login route:", error.message);
         response.status(500).json({ message: "Internal server error" });
     }
 });
 
-// Get all faculty members (Admin only)
-router.get("/all", protectRoute, async (request, response) => {
+// Get all faculty — Supervisor only
+router.get("/all", protectRoute, requireSupervisor, async (request, response) => {
     try {
         const faculty = await Faculty.find().select('-password');
         response.json(faculty);
     } catch (error) {
-        console.log("Error fetching faculty:", error);
+        console.error("Error fetching faculty:", error.message);
         response.status(500).json({ message: "Server error" });
     }
 });
 
-// Get faculty by ID
-router.get("/:id", protectRoute, async (request, response) => {
+// Get faculty by ID — Supervisor only
+router.get("/:id", protectRoute, requireSupervisor, async (request, response) => {
     try {
         const faculty = await Faculty.findById(request.params.id).select('-password');
-        if (!faculty) {
+        if (!faculty)
             return response.status(404).json({ message: "Faculty not found" });
-        }
         response.json(faculty);
     } catch (error) {
-        console.log("Error fetching faculty:", error);
+        console.error("Error fetching faculty:", error.message);
         response.status(500).json({ message: "Server error" });
     }
 });
 
-// Update faculty
-router.put("/:id", protectRoute, async (request, response) => {
+// Update faculty — Supervisor only
+router.put("/:id", protectRoute, requireSupervisor, async (request, response) => {
     try {
         const { username, email, department } = request.body;
-        
         const faculty = await Faculty.findByIdAndUpdate(
             request.params.id,
             { username, email, department },
             { new: true, runValidators: true }
         ).select('-password');
-        
-        if (!faculty) {
+
+        if (!faculty)
             return response.status(404).json({ message: "Faculty not found" });
-        }
-        
+
         response.json(faculty);
     } catch (error) {
-        console.log("Error updating faculty:", error);
+        console.error("Error updating faculty:", error.message);
         response.status(500).json({ message: "Server error" });
     }
 });
 
-// Delete faculty
-router.delete("/:id", protectRoute, async (request, response) => {
+// Delete faculty — Supervisor only
+router.delete("/:id", protectRoute, requireSupervisor, async (request, response) => {
     try {
         const faculty = await Faculty.findByIdAndDelete(request.params.id);
-        if (!faculty) {
+        if (!faculty)
             return response.status(404).json({ message: "Faculty not found" });
-        }
         response.json({ message: "Faculty deleted successfully" });
     } catch (error) {
-        console.log("Error deleting faculty:", error);
+        console.error("Error deleting faculty:", error.message);
         response.status(500).json({ message: "Server error" });
     }
 });
 
-export default router;  
+export default router;

@@ -1,20 +1,38 @@
 import express from 'express';
 import Supervisor_Evaluation from '../models/Supervisor_evaluation.js';
-import SupervisorForm from '../models/SupervisorForm.js';
 import protectRoute from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Create new evaluation
+// ─── SUBMIT SUPERVISOR EVALUATION ──────────────────────────────────────────
 router.post('/', protectRoute, async (req, res) => {
     try {
-        const { title, semester, schoolyear, instructorId, userId, department, points, name } = req.body;
+        const { title, semester, schoolyear, instructorId, department, points, name } = req.body;
 
-        console.log('=== POST /supervisor-evaluation ===');
-        console.log('req.body:', req.body);
+        // ✅ Use authenticated user's _id — never trust client-sent userId
+        const userId = req.user._id;
 
-        if (!title || !semester || !schoolyear || !instructorId || !userId || !department || points === undefined) {
+        if (!title || !semester || !schoolyear || !instructorId || !department) {
             return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        // ✅ Proper points validation
+        if (points === undefined || points === null) {
+            return res.status(400).json({ message: 'Points are required' });
+        }
+
+        // ✅ Prevent duplicate evaluations
+        const existing = await Supervisor_Evaluation.findOne({
+            userId,
+            instructorId,
+            title,
+            semester,
+            schoolyear,
+        });
+        if (existing) {
+            return res.status(409).json({
+                message: 'You have already submitted an evaluation for this program chair this semester.'
+            });
         }
 
         const newEvaluation = new Supervisor_Evaluation({
@@ -22,32 +40,29 @@ router.post('/', protectRoute, async (req, res) => {
             semester,
             schoolyear,
             instructorId,
-            userId,
+            userId,                  // ✅ from req.user, not req.body
             department,
             name: name || 'Unknown',
             points,
         });
 
         await newEvaluation.save();
-        console.log('Evaluation saved:', newEvaluation._id);
-        
         res.status(201).json({ message: 'Evaluation submitted successfully', evaluation: newEvaluation });
     } catch (error) {
-        console.error('Error creating evaluation:', error);
         res.status(500).json({ message: error.message });
     }
 });
 
-// Get evaluations for a specific instructor (Program Chair)
+// ─── GET EVALUATIONS BY INSTRUCTOR (Program Chair) ─────────────────────────
 router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
     try {
         const { instructorId } = req.params;
+
         const evaluations = await Supervisor_Evaluation.find({ instructorId })
             .populate('instructorId', 'username department')
             .populate('userId', 'username')
             .sort({ createdAt: -1 });
 
-        // Group by schoolyear and semester
         const schoolYears = {};
         evaluations.forEach(evaluation => {
             if (!schoolYears[evaluation.schoolyear]) {
@@ -63,60 +78,59 @@ router.get('/instructor/:instructorId', protectRoute, async (req, res) => {
 
         res.json(result);
     } catch (error) {
-        console.error('Error fetching evaluations:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get subjects for an instructor in specific semester/year
+// ─── GET SUBJECTS ───────────────────────────────────────────────────────────
 router.get('/subjects/:instructorId/:schoolyear/:semester', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester } = req.params;
-        const evaluations = await Supervisor_Evaluation.find({ 
-            instructorId, 
-            schoolyear, 
-            semester 
+
+        const subjects = await Supervisor_Evaluation.find({
+            instructorId,
+            schoolyear,
+            semester,
         }).distinct('title');
-        
-        res.json(evaluations);
+
+        res.json(subjects);
     } catch (error) {
-        console.error('Error fetching subjects:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get evaluation details
+// ─── GET EVALUATION DETAILS ─────────────────────────────────────────────────
 router.get('/details/:instructorId/:schoolyear/:semester/:title', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear, semester, title } = req.params;
-        const evaluations = await Supervisor_Evaluation.find({ 
-            instructorId, 
-            schoolyear, 
-            semester, 
-            title 
+
+        const evaluations = await Supervisor_Evaluation.find({
+            instructorId,
+            schoolyear,
+            semester,
+            title,
         })
-        .populate('userId', 'username')
-        .sort({ createdAt: -1 });
-        
+            .populate('userId', 'username')
+            .sort({ createdAt: -1 });
+
         res.json(evaluations);
     } catch (error) {
-        console.error('Error fetching evaluations:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Get semesters for a schoolyear
+// ─── GET SEMESTERS ──────────────────────────────────────────────────────────
 router.get('/semesters/:instructorId/:schoolyear', protectRoute, async (req, res) => {
     try {
         const { instructorId, schoolyear } = req.params;
-        const evaluations = await Supervisor_Evaluation.find({ 
-            instructorId, 
-            schoolyear 
+
+        const semesters = await Supervisor_Evaluation.find({
+            instructorId,
+            schoolyear,
         }).distinct('semester');
-        
-        res.json(evaluations);
+
+        res.json(semesters);
     } catch (error) {
-        console.error('Error fetching semesters:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

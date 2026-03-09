@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['Program Chair', 'Supervisor'],
+        enum: ['Program Chair', 'Supervisor'], //Program Chair and Supervisor share the same UI so their models are loaded in the same model
         required: true,
     },
 }, { timestamps: true });

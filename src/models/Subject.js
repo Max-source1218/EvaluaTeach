@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 const subjectSchema = new mongoose.Schema({
-    title: {
+    title: { //Subject Name
         type: String,
         required: true,
     },
@@ -16,7 +16,7 @@ const subjectSchema = new mongoose.Schema({
         required: true,
         enum: ['2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028'],
     },
-    department: {  // ✅ This field must exist!
+    department: {  
         type: String,
         required: true,
         enum: ['CCIT', 'CTE', 'CBAPA'],
