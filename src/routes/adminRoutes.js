@@ -50,6 +50,30 @@ router.get("/program-chairs", protectRoute, async (req, res) => {
     }
 });
 
+// Get single user by ID — used by SubjectInputForm to load instructor details
+router.get('/user/:id', protectRoute, async (req, res) => {
+    try {
+        const [user, supervisorForm] = await Promise.all([
+            User.findById(req.params.id).select('-password').lean(),
+            SupervisorForm.findOne({ user: req.params.id }).lean(),
+        ]);
+
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+
+        res.json({
+            _id:        user._id,
+            username:   user.username,
+            email:      user.email,
+            role:       user.role,
+            department: supervisorForm?.department || 'N/A',
+            createdAt:  user.createdAt,
+        });
+    } catch (error) {
+        console.error('Error fetching user:', error.message);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 // Get all Faculty (for Program Chairs)
 router.get("/faculty", protectRoute, async (req, res) => {
     try {
