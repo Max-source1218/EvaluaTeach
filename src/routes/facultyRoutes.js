@@ -34,7 +34,8 @@ const requireSupervisorOrChair = (req, res, next) => {
 };
 
 // Register Faculty — Supervisor only
-router.post("/register", protectRoute, requireSupervisor, upload.single('profileImage'), async (request, response) => {
+// ✅ Register Faculty — Supervisor AND Program Chair
+router.post("/register", protectRoute, requireSupervisorOrChair, upload.single('profileImage'), async (request, response) => {
     try {
         const { email, username, password, department } = request.body;
 
@@ -122,7 +123,7 @@ router.post("/login", async (request, response) => {
 });
 
 // Get all faculty — Supervisor only
-router.get("/all", protectRoute, requireSupervisor, async (request, response) => {
+router.get("/all", protectRoute, requireSupervisorOrChair, async (request, response) => {
     try {
         const faculty = await Faculty.find().select('-password');
         response.json(faculty);
@@ -133,7 +134,7 @@ router.get("/all", protectRoute, requireSupervisor, async (request, response) =>
 });
 
 // Get faculty by ID — Supervisor only
-router.get("/:id", protectRoute, requireSupervisor, async (request, response) => {
+router.get("/:id", protectRoute, requireSupervisorOrChair, async (request, response) => {
     try {
         const faculty = await Faculty.findById(request.params.id).select('-password');
         if (!faculty)
@@ -146,7 +147,7 @@ router.get("/:id", protectRoute, requireSupervisor, async (request, response) =>
 });
 
 // Update faculty — Supervisor only
-router.put("/:id", protectRoute, requireSupervisor, async (request, response) => {
+router.put("/:id", protectRoute, requireSupervisorOrChair, async (request, response) => {
     try {
         const { username, email, department } = request.body;
         const faculty = await Faculty.findByIdAndUpdate(
@@ -166,7 +167,7 @@ router.put("/:id", protectRoute, requireSupervisor, async (request, response) =>
 });
 
 // Delete faculty — Supervisor only
-router.delete("/:id", protectRoute, requireSupervisor, async (request, response) => {
+router.delete("/:id", protectRoute, requireSupervisorOrChair, async (request, response) => {
     try {
         const faculty = await Faculty.findByIdAndDelete(request.params.id);
         if (!faculty)
