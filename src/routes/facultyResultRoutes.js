@@ -53,6 +53,23 @@ router.get('/departments/:facultyId/:schoolyear', combinedAuth, async (req, res)
     }
 });
 
+// ─── TABULATION SEMESTERS (no department filter) ───────────────────────────
+router.get('/semesters/:facultyId/:schoolyear', combinedAuth, async (req, res) => {
+    try {
+        const { facultyId, schoolyear } = req.params;
+
+        const [pcSemesters, studentSemesters] = await Promise.all([
+            Faculty_Evaluation.distinct('semester', { facultyId, schoolyear }),
+            StudentEvaluation.distinct('semester', studentFacultyFilter(facultyId, { schoolyear })),
+        ]);
+
+        const allSemesters = [...new Set([...pcSemesters, ...studentSemesters])];
+        res.json(allSemesters);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // ─── SEMESTERS ─────────────────────────────────────────────────────────────
 router.get('/semesters/:facultyId/:schoolyear/:department', combinedAuth, async (req, res) => {
     try {
