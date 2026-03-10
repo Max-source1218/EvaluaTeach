@@ -5,13 +5,9 @@ import combinedAuth from '../middleware/combinedAuth.middleware.js';
 
 const router = express.Router();
 
-// ─── HELPER ────────────────────────────────────────────────────────────────
-// Students evaluating faculty have evaluatorType: 'Student' and evaluatorId
-// pointing to the faculty's _id. The field evaluatorType records who is
-// doing the evaluating, not who is being evaluated.
 const studentFacultyFilter = (facultyId, extra = {}) => ({
-    evaluatorId: facultyId,
-    evaluatorType: 'Student', // ✅ fixed from 'faculty'
+    facultyId,            // ✅ faculty being evaluated
+    evaluatorType: 'Student',
     ...extra,
 });
 
