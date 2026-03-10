@@ -13,7 +13,7 @@ const studentEvaluationSchema = new mongoose.Schema({
     evaluatorType: {
         type: String,
         required: true,
-        enum: ['faculty', 'programChair'], //Determines which will be evaluated
+        enum: ['faculty', 'programChair', 'Student'], // ✅ add Student
     },
     schoolyear: {
         type: String,
