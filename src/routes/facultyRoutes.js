@@ -25,10 +25,10 @@ const uploadToCloudinary = (buffer) => {
     });
 };
 
-// ✅ Role guard helper — Supervisor only
-const requireSupervisor = (req, res, next) => {
-    if (req.user.role !== 'Supervisor') {
-        return res.status(403).json({ message: "Access denied - Supervisors only" });
+// ✅ Allow both Supervisor and Program Chair to register faculty
+const requireSupervisorOrChair = (req, res, next) => {
+    if (req.user.role !== 'Supervisor' && req.user.role !== 'Program Chair') {
+        return res.status(403).json({ message: "Access denied - Supervisors and Program Chairs only" });
     }
     next();
 };
