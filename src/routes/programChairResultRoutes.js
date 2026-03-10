@@ -57,7 +57,25 @@ router.get('/departments/:programChairId/:schoolyear', combinedAuth, async (req,
     }
 });
 
+
 // ─── SEMESTERS ─────────────────────────────────────────────────────────────
+
+router.get('/semesters/:programChairId/:schoolyear', combinedAuth, async (req, res) => {
+    try {
+        const { programChairId, schoolyear } = req.params;
+
+        const [supervisorSemesters, studentSemesters] = await Promise.all([
+            Supervisor_Evaluation.distinct('semester', { instructorId: programChairId, schoolyear }),
+            StudentEvaluation.distinct('semester', studentPCFilter(programChairId, { schoolyear })),
+        ]);
+
+        const allSemesters = [...new Set([...supervisorSemesters, ...studentSemesters])];
+        res.json(allSemesters);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 router.get('/semesters/:programChairId/:schoolyear/:department', combinedAuth, async (req, res) => {
     try {
         const { programChairId, schoolyear, department } = req.params;
