@@ -1,0 +1,1 @@
+export const API_URL = "https://evaluateach-1.onrender.com/api";
