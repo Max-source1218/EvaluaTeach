@@ -12,7 +12,6 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.Doombot311.evaluateach",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -47,12 +46,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "12eb73d2-fb2a-4a79-8e4f-fd6453b6f1a9"
-      }
     }
   }
 }
