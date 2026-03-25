@@ -12,7 +12,6 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.Doombot311.evaluateach",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -20,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.doombot311.EvaluaTeach"
     },
     "web": {
       "output": "static",
