@@ -1,12 +1,18 @@
 {
+  "cli": {
+    "version": ">= 0.60.0"
+  },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
     "preview": {
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_USE_METRO_WORKSPACE_ROOT": "1"
-      }
-    }
+      "distribution": "internal"
+    },
+    "production": {}
+  },
+  "submit": {
+    "production": {}
   }
 }
